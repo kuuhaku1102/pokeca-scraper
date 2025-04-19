@@ -1,6 +1,7 @@
 import time
 import os
 import base64
+import json
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -31,7 +32,7 @@ options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 # データ書き込み（B列以降）
-ws.update("B1:F1", [["カード名", "画像URL", "美品価格", "キズあり価格", "PSA10価格"]])
+ws.update("B1:D1", [["カード名", "画像URL", "直近価格JSON"]])
 
 for i, url in enumerate(urls, start=2):
     driver.get(url)
@@ -58,7 +59,7 @@ for i, url in enumerate(urls, start=2):
                 prices["キズあり"] = cells[2].text.strip() if len(cells) > 2 else ""
                 prices["PSA10"] = cells[3].text.strip() if len(cells) > 3 else ""
 
-    # シート2のB列以降に書き込み
-    ws.update(f"B{i}:F{i}", [[card_name, img_url, prices["美品"], prices["キズあり"], prices["PSA10"]]])
+    price_json = json.dumps(prices, ensure_ascii=False)
+    ws.update(f"B{i}:D{i}", [[card_name, img_url, price_json]])
 
 driver.quit()
