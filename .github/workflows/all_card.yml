@@ -1,10 +1,9 @@
 name: All Card Detail Scraper
 
 on:
-  workflow_dispatch:  # ✅ 手動実行可能
-  push:               # ✅ push時に実行
-    branches:
-      - main
+  schedule:
+    - cron: '0 0 * * *'  # JST 9:00（UTC 0:00）
+  workflow_dispatch:      # ✅ 手動実行も可能
 
 jobs:
   run:
