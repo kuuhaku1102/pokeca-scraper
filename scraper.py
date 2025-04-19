@@ -22,6 +22,9 @@ client = gspread.authorize(creds)
 sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit").worksheet("シート1")
 urls = sheet.col_values(3)[1:]  # C列URL
 
+# ヘッダーセット
+sheet.update(range_name='D1', values=[["直近価格JSON"]])
+
 # Chrome起動（headless）
 options = Options()
 options.add_argument('--headless')
@@ -29,18 +32,7 @@ options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# 現在の行数を取得
-current_rows = len(sheet.col_values(1))
-next_row = current_rows + 1
-
-# 上限チェック
-if current_rows >= 1000:
-    print("✅ 1000行を超えたため上書きリセットします")
-    sheet.clear()
-    sheet.update(range_name='A1', values=[["カード名", "画像", "URL", "直近価格JSON"]])
-    next_row = 2  # 初期位置リセット
-
-for url in urls:
+for i, url in enumerate(urls, start=2):
     if not url.startswith("http"):
         continue
 
@@ -52,19 +44,13 @@ for url in urls:
 
     if table:
         rows = table.find_all("tr")
-        if len(rows) >= 2:
+        if len(rows) >= 2:  # 「直近価格」は2番目の行
             tds = rows[1].find_all("td")
             if len(tds) >= 4:
                 prices["美品"] = tds[1].text.strip()
                 prices["キズあり"] = tds[2].text.strip()
                 prices["PSA10"] = tds[3].text.strip()
 
-    card_name = soup.find("h1").text.strip() if soup.find("h1") else ""
-    img_tag = soup.find("img")
-    img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else ""
-    full_img_url = img_url if img_url.startswith("http") else "https://pokeca-chart.com" + img_url
-
-    sheet.update(f'A{next_row}:D{next_row}', [[card_name, full_img_url, url, json.dumps(prices, ensure_ascii=False)]])
-    next_row += 1
+    sheet.update(f'D{i}', [[json.dumps(prices, ensure_ascii=False)]])
 
 driver.quit()
