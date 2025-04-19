@@ -18,7 +18,12 @@ data = res.json()
 for row in data:
     title = row.get("カード名", "")
     slug = slugify(title)
-    prices = json.loads(row.get("直近価格JSON", "{}"))
+
+    raw_json = row.get("直近価格JSON", "")
+    if raw_json:
+        prices = json.loads(raw_json)
+    else:
+        prices = {"美品": "-", "キズあり": "-", "PSA10": "-"}
 
     img = row.get("画像URL", row.get("画像", ""))
     beauty = prices.get("美品", "-")
