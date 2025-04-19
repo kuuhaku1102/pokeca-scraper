@@ -2,6 +2,7 @@ import time
 import re
 import os
 import base64
+import json
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -29,8 +30,7 @@ urls = ws.col_values(3)[1:]
 # ✅ 見出し項目
 sections = ["美品", "キズあり", "PSA10"]
 labels = ["データ数", "直近価格", "最高価格", "平均価格", "最低価格", "騰落率(7日)", "騰落率(30日)"]
-headers = [f"{s}_{l}" for s in sections for l in labels]
-ws.update(range_name='D1', values=[headers])  # ✅ warning回避
+ws.update(range_name='D1', values=[["価格情報JSON"]])
 
 # ✅ Chromeドライバ設定（GitHub Actions対応）
 options = Options()
@@ -48,6 +48,7 @@ for i, url in enumerate(urls, start=2):
     soup = BeautifulSoup(driver.page_source, 'html.parser')
     table = soup.find("tbody", id="item-price-table")
     data = []
+
     if table:
         for row in table.find_all("tr"):
             tds = row.find_all("td")
@@ -55,7 +56,23 @@ for i, url in enumerate(urls, start=2):
                 val = td.get_text(strip=True).replace(",", "").replace("円", "").replace("%", "").replace("(", "").replace(")", "")
                 data.append(val)
     else:
-        data = [""] * len(headers)
-    ws.update(f'D{i}', [data])
+        data = [""] * (len(sections) * len(labels))  # 空データ対応
+
+    # カテゴリ別に分割
+    b = data[0:7]
+    k = data[7:14]
+    p = data[14:21]
+
+    # ネスト構造で価格情報を構築
+    price_dict = {}
+    for idx, label in enumerate(labels):
+        price_dict[label] = {
+            "美品": b[idx],
+            "キズあり": k[idx],
+            "PSA10": p[idx]
+        }
+
+    # JSONとしてスプレッドシートに保存（1セル）
+    ws.update(f'D{i}', [[json.dumps(price_dict, ensure_ascii=False)]])
 
 driver.quit()
