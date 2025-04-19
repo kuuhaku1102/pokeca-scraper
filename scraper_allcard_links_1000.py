@@ -50,7 +50,7 @@ for _ in range(40):
 # HTML取得・パース
 html = driver.page_source
 soup = BeautifulSoup(html, "html.parser")
-cards = soup.find_all("div", class_="cp_card04")
+cards = soup.find_all("div", class_="cp_card")
 
 # URL一覧抽出
 card_urls = []
