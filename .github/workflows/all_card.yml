@@ -1,4 +1,4 @@
-name: Pokeca Card Detail Scraper
+name: All Card Detail Scraper
 
 on:
   workflow_dispatch:  # ✅ 手動実行可能
