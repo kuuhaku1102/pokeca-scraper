@@ -2,7 +2,7 @@ name: Update WordPress Cards
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # JST 9:00 (UTC+0 0:00)
+    - cron: '0 0 * * *'  # JST 9:00
   workflow_dispatch:
 
 jobs:
@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          path: .
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -27,6 +29,11 @@ jobs:
         run: |
           pip install requests python-slugify
 
-      - name: Run update_cards_wp.py
+      - name: Confirm location
+        run: |
+          pwd
+          ls -la
+
+      - name: Run update script
         run: |
           python update_cards_wp.py
