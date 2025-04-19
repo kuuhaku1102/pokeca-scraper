@@ -8,7 +8,7 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    environment: GSHEET_JSON  # ✅ ここが必要です！
+    environment: GSHEET_JSON   # ← この位置が超重要！！
 
     steps:
       - name: Checkout code
@@ -24,3 +24,4 @@ jobs:
 
       - name: Run scraper
         run: python scraper.py
+
