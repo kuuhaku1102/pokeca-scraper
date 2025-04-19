@@ -28,4 +28,4 @@ jobs:
 
       - name: 🚀 Run Card Detail Scraper
         run: |
-          python scrape_card_details.py
+          python all-date.py
