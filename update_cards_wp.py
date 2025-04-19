@@ -15,23 +15,29 @@ res = requests.get(GAS_URL)
 data = res.json()
 
 for row in data:
-    title = row.get("\u30ab\u30fc\u30c9\u540d", "")
+    title = row.get("カード名", "")
     slug = slugify(title)
+    prices = json.loads(row.get("直近価格JSON", "{}"))
+
+    img = row.get("画像URL", row.get("画像", ""))
+    beauty = prices.get("美品", "-")
+    damaged = prices.get("キズあり", "-")
+    psa10 = prices.get("PSA10", "-")
 
     # 1. 既存ポストをチェック
     check_url = f"{WP_BASE}/card?slug={slug}"
     check = requests.get(check_url, auth=(USERNAME, APP_PASSWORD))
 
-    # 2. 資料の構築
-    content = f"""
-        <p><img src='{row.get("\u753b\u50cfURL", row.get("\u753b\u50cf", ""))}'></p>
+    # 2. content部分（format形式に変更）
+    content = """
+        <p><img src='{img}'></p>
         <p>価格情報</p>
         <ul>
-            <li>美品: {json.loads(row.get("\u76f4\u8fd1\u4fa1\u683cJSON", '{}')).get("\u7f8e\u54c1", '-')}</li>
-            <li>キズあり: {json.loads(row.get("\u76f4\u8fd1\u4fa1\u683cJSON", '{}')).get("\u30ad\u30ba\u3042\u308a", '-')}</li>
-            <li>PSA10: {json.loads(row.get("\u76f4\u8fd1\u4fa1\u683cJSON", '{}')).get("PSA10", '-')}</li>
+            <li>美品: {beauty}</li>
+            <li>キズあり: {damaged}</li>
+            <li>PSA10: {psa10}</li>
         </ul>
-    """
+    """.format(img=img, beauty=beauty, damaged=damaged, psa10=psa10)
 
     post_data = {
         'title': title,
@@ -39,19 +45,18 @@ for row in data:
         'status': 'publish',
         'content': content,
         'fields': {
-            'card_image_url': row.get("\u753b\u50cfURL", ""),
-            'card_name': row.get("\u30ab\u30fc\u30c9\u540d", ""),
-            'model_number': row.get("\u578b\u756a", ""),
-            'buy_price': row.get("\u8cb0\u53d6\u4fa1\u683c", ""),
-            'sell_price': row.get("\u8ca9\u58f2\u4fa1\u683c", ""),
-            'card_link': row.get("\u30ab\u30fc\u30c9\u8a73\u7d30URL", ""),
-            'price_beauty': json.loads(row.get("\u76f4\u8fd1\u4fa1\u683cJSON", '{}')).get("\u7f8e\u54c1", ""),
-            'price_damaged': json.loads(row.get("\u76f4\u8fd1\u4fa1\u683cJSON", '{}')).get("\u30ad\u30ba\u3042\u308a", ""),
-            'price_psa10': json.loads(row.get("\u76f4\u8fd1\u4fa1\u683cJSON", '{}')).get("PSA10", "")
+            'card_image_url': img,
+            'card_name': title,
+            'model_number': row.get("型番", ""),
+            'buy_price': row.get("買取価格", ""),
+            'sell_price': row.get("販売価格", ""),
+            'card_link': row.get("カード詳細URL", ""),
+            'price_beauty': beauty,
+            'price_damaged': damaged,
+            'price_psa10': psa10
         }
     }
 
-    # 3. 既存していれば PUT, 新規なら POST
     if check.status_code == 200 and check.json():
         post_id = check.json()[0]['id']
         update_url = f"{WP_BASE}/card/{post_id}"
