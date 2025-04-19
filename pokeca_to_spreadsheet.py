@@ -29,8 +29,9 @@ options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# 現在の行数を取得
-current_rows = len(sheet.col_values(1))
+# 現在の行数とカード名一覧取得
+existing_card_names = sheet.col_values(1)
+current_rows = len(existing_card_names)
 next_row = current_rows + 1
 
 # 上限チェック
@@ -38,7 +39,8 @@ if current_rows >= 1000:
     print("✅ 1000行を超えたため上書きリセットします")
     sheet.clear()
     sheet.update(range_name='A1', values=[["カード名", "画像", "URL", "直近価格JSON"]])
-    next_row = 2  # 初期位置リセット
+    existing_card_names = []
+    next_row = 2
 
 for url in urls:
     if not url.startswith("http"):
@@ -64,7 +66,13 @@ for url in urls:
     img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else ""
     full_img_url = img_url if img_url.startswith("http") else "https://pokeca-chart.com" + img_url
 
-    sheet.update(f'A{next_row}:D{next_row}', [[card_name, full_img_url, url, json.dumps(prices, ensure_ascii=False)]])
-    next_row += 1
+    # カード名が存在すればその行に上書き、なければ追記
+    if card_name in existing_card_names:
+        row_index = existing_card_names.index(card_name) + 1
+        sheet.update(f'A{row_index}:D{row_index}', [[card_name, full_img_url, url, json.dumps(prices, ensure_ascii=False)]])
+    else:
+        sheet.update(f'A{next_row}:D{next_row}', [[card_name, full_img_url, url, json.dumps(prices, ensure_ascii=False)]])
+        next_row += 1
+        existing_card_names.append(card_name)
 
 driver.quit()
