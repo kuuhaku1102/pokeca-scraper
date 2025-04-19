@@ -1,0 +1,1 @@
+# ← pokeca_to_spreadsheet.py をここに上書きしてください
