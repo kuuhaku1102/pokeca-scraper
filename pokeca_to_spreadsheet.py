@@ -1,4 +1,7 @@
 # pokeca_to_spreadsheet.py（card04 + tableパース対応 完全版）
+import base64, os
+with open("credentials.json", "wb") as f:
+    f.write(base64.b64decode(os.environ["GSHEET_JSON"]))
 import os
 import time
 import requests
