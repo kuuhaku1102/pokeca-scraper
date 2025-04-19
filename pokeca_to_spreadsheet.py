@@ -81,7 +81,7 @@ for url in card_urls:
         img_tag = soup.find("img")
         img_url = img_tag["src"] if img_tag else ""
         full_img_url = img_url if img_url.startswith("http") else "https://pokeca-chart.com" + img_url
-        img_formula = f'=IMAGE("{full_img_url}")' if full_img_url else ""
+        img_formula = full_img_url
 
         # 価格情報テーブル解析（表形式）
         table = soup.find("table", id="item-price-table")
