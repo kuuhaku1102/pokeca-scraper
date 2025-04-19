@@ -3,12 +3,11 @@ import json
 from slugify import slugify
 
 # WordPress REST API 認証情報
+# ✅ GitHub Actions 環境変数から認証情報とURLを受け取る
 WP_BASE = 'https://oripa-gacha.online/wp-json/wp/v2'
-USERNAME = os.environ.get("WP_USER")
-APP_PASSWORD = os.environ.get("WP_APP_PASS")
-
-# GAS JSON URL（シート2）
-GAS_URL = "https://script.google.com/macros/s/AKfycbxKsTu0RUAjNcxF3KFCgXX66ApxVouytSHisrrNHgJ-YN6QKyfTSYsAc4f9ismH2lB0Ww/exec"
+USERNAME = os.environ.get("WP_USER")        # ← GitHub SecretsのWP_USER
+APP_PASSWORD = os.environ.get("WP_APP_PASS")  # ← GitHub SecretsのWP_APP_PASS
+GAS_URL = os.environ.get("GAS_URL")         # ← GitHub SecretsのGAS_URL
 
 
 # GAS からデータを取得
