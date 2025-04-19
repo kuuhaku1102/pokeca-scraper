@@ -2,6 +2,5 @@ selenium
 webdriver-manager
 beautifulsoup4
 gspread
-gspread_dataframe
 oauth2client
-pandas  # ← これが必要！
+pymysql
