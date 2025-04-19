@@ -1,7 +1,7 @@
 import requests
 import json
 from slugify import slugify
-import os  # ← これを忘れずに！
+import os
 
 # WordPress REST API 認証情報（GitHub Secretsから取得）
 WP_BASE = 'https://oripa-gacha.online/wp-json/wp/v2'
@@ -9,15 +9,22 @@ USERNAME = os.environ.get("WP_USER")
 APP_PASSWORD = os.environ.get("WP_APP_PASS")
 GAS_URL = os.environ.get("GAS_URL")
 
-
+print("🚀 スクリプト起動しました！")
+print(f"🧪 USERNAME: {USERNAME}")
+print(f"🧪 GAS_URL: {GAS_URL}")
 
 # GAS からデータを取得
 res = requests.get(GAS_URL)
+print(f"🌐 GASレスポンスステータス: {res.status_code}")
+print(f"🧾 レスポンス冒頭: {res.text[:100]}")
+
 data = res.json()
+print(f"📄 データ件数: {len(data)} 件")
 
 for row in data:
     title = row.get("カード名", "")
     slug = slugify(title)
+    print(f"⏳ 投稿チェック中: {title} ({slug})")
 
     raw_json = row.get("直近価格JSON", "")
     if raw_json:
@@ -53,10 +60,6 @@ for row in data:
         'fields': {
             'card_image_url': img,
             'card_name': title,
-            'model_number': row.get("型番", ""),
-            'buy_price': row.get("買取価格", ""),
-            'sell_price': row.get("販売価格", ""),
-            'card_link': row.get("カード詳細URL", ""),
             'price_beauty': beauty,
             'price_damaged': damaged,
             'price_psa10': psa10
@@ -71,3 +74,5 @@ for row in data:
     else:
         r = requests.post(f"{WP_BASE}/card", auth=(USERNAME, APP_PASSWORD), json=post_data)
         print(f"🆕 Created: {title}")
+
+print("✅ 全投稿処理が完了しました。")
