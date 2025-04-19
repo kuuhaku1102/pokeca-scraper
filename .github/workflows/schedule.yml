@@ -1,13 +1,9 @@
-name: PokecaPriceUpdater
-
-on:
-  schedule:
-    - cron: '0 0 * * *'  # JST 9:00
-  workflow_dispatch:
-
 jobs:
   run:
-    runs-on: ubuntu-latest  # ✅ ← ここを揃える！
+    runs-on: ubuntu-latest
+
+    env:  # ✅ Secretsをここで渡す！
+      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
 
     steps:
       - name: Checkout code
