@@ -1,4 +1,8 @@
+# pokeca_to_spreadsheet.py（GitHub Actions対応 完全版）
 import base64, os
+with open("credentials.json", "wb") as f:
+    f.write(base64.b64decode(os.environ["GSHEET_JSON"]))
+
 import time
 import requests
 from bs4 import BeautifulSoup
@@ -10,25 +14,31 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-import pymysql
-import json
 
-with open("credentials.json", "wb") as f:
-    f.write(base64.b64decode(os.environ["GSHEET_JSON"]))
-
-scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+# Google Sheets認証設定
+scope = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
-sheet = client.open("Pokecaカード一覧").sheet1
 
+# スプレッドシート設定
+SPREADSHEET_NAME = "Pokecaカード一覧"
+sheet = client.open(SPREADSHEET_NAME).sheet1
+
+# Chrome設定（GitHub Actions対応 headless）
 options = Options()
 options.add_argument("--headless")
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
+# URLをトップページから取得
 print("🔍 トップページを読み込み中...")
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.get("https://pokeca-chart.com/")
+
+# 🔁 スクロールして全カードを読み込む
 last_height = driver.execute_script("return document.body.scrollHeight")
 scroll_attempts = 0
 while True:
@@ -42,10 +52,11 @@ while True:
     else:
         scroll_attempts = 0
     last_height = new_height
+print("✅ スクロール完了、カード読み込み済み")
 
+# card04内の<a href>からURL抽出
 html = driver.page_source
 driver.quit()
-
 soup = BeautifulSoup(html, "html.parser")
 cards = soup.find_all("div", class_="cp_card04")
 card_urls = []
@@ -55,9 +66,11 @@ for card in cards:
         href = a_tag["href"]
         if href.startswith("https://pokeca-chart.com/s"):
             card_urls.append(href)
+
 card_urls = list(set(card_urls))[:100]
 print(f"✅ カードURL取得数: {len(card_urls)} 件")
 
+# スクレイピング開始
 results = []
 for url in card_urls:
     try:
@@ -70,10 +83,12 @@ for url in card_urls:
         full_img_url = img_url if img_url.startswith("http") else "https://pokeca-chart.com" + img_url
         img_formula = f'=IMAGE("{full_img_url}")' if full_img_url else ""
 
+        # 価格情報テーブル解析（表形式）
         table = soup.find("table", id="item-price-table")
         b = [""] * 7
         k = [""] * 7
         p = [""] * 7
+
         if table:
             rows = table.find_all("tr")
             for i, row in enumerate(rows):
@@ -92,42 +107,12 @@ for url in card_urls:
             "PSA10_データ数": p[0], "PSA10_直近価格": p[1], "PSA10_最高価格": p[2], "PSA10_平均価格": p[3], "PSA10_最低価格": p[4], "PSA10_騰落率(7日)": p[5], "PSA10_騰落率(30日)": p[6]
         })
         print(f"✅ 取得完了: {title}")
+
     except Exception as e:
         print(f"⚠️ スキップ: {url} → {e}")
 
+# スプレッドシートへ出力
 sheet.clear()
 df = pd.DataFrame(results)
 set_with_dataframe(sheet, df)
-print("✅ Googleスプレッドシートに出力完了！")
-
-conn = pymysql.connect(
-    host=os.environ["DB_HOST"],
-    user=os.environ["DB_USER"],
-    password=os.environ["DB_PASS"],
-    database=os.environ["DB_NAME"],
-    charset='utf8mb4'
-)
-cursor = conn.cursor()
-
-labels = ["データ数", "直近価格", "最高価格", "平均価格", "最低価格", "騰落率(7日)", "騰落率(30日)"]
-
-for card in results:
-    sql = """
-    INSERT INTO wp_pokeca_prices (
-      card_title, image_url, card_url,
-      price_b, price_k, price_p
-    ) VALUES (%s, %s, %s, %s, %s, %s)
-    """
-    cursor.execute(sql, (
-        card["カード名"],
-        card["画像"],
-        card["URL"],
-        json.dumps({l: card[f"美品_{l}"] for l in labels}, ensure_ascii=False),
-        json.dumps({l: card[f"キズあり_{l}"] for l in labels}, ensure_ascii=False),
-        json.dumps({l: card[f"PSA10_{l}"] for l in labels}, ensure_ascii=False),
-    ))
-
-conn.commit()
-cursor.close()
-conn.close()
-print("✅ MySQLへの保存も完了しました！")
+print("\n✅ Googleスプレッドシートに出力完了しました！")
