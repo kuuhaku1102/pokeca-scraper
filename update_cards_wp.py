@@ -78,5 +78,6 @@ for row in data:
     else:
         r = requests.post(f"{WP_BASE}/card", auth=(USERNAME, APP_PASSWORD), json=post_data)
         print(f"🆕 Created: {title}")
-
-print("✅ 全投稿処理が完了しました。")
+        print(f"📩 投稿レスポンス: {r.status_code}")
+        print(f"📦 内容: {r.text[:200]}")
+        print("✅ 全投稿処理が完了しました。")
