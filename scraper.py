@@ -1,4 +1,4 @@
-# ← scraper.py をここに上書きしてくださいimport time
+import time
 import re
 import os
 import base64
@@ -32,7 +32,7 @@ labels = ["データ数", "直近価格", "最高価格", "平均価格", "最�
 headers = [f"{s}_{l}" for s in sections for l in labels]
 ws.update(range_name='D1', values=[headers])  # ✅ warning回避
 
-# ✅ Chromeドライバ設定（最新）
+# ✅ Chromeドライバ設定（GitHub Actions対応）
 options = Options()
 options.add_argument('--headless')
 options.add_argument('--no-sandbox')
