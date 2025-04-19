@@ -7,7 +7,7 @@ on:
 
 jobs:
   run:
-    environment: GSHEET_JSON   # ← この位置が超重要！！
+   runs-on: ubuntu-latest  # ← ✅ ここだけでOK
 
     steps:
       - name: Checkout code
