@@ -1,0 +1,31 @@
+name: Pokeca Card Detail Scraper
+
+on:
+  workflow_dispatch:  # ✅ 手動実行可能
+  push:               # ✅ push時に実行
+    branches:
+      - main
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    env:
+      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+
+    steps:
+      - name: ✅ Checkout repository
+        uses: actions/checkout@v3
+
+      - name: ✅ Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: ✅ Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: 🚀 Run Card Detail Scraper
+        run: |
+          python scrape_card_details.py
