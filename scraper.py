@@ -5,13 +5,14 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import gspread
 from gspread_dataframe import set_with_dataframe
-from oauth2client.service_account import ServiceAccountCredentials
+from oauth2client.service_account import ServiceAccountCredentials  # ← これ！
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 import pymysql
 import json
+
 
 with open("credentials.json", "wb") as f:
     f.write(base64.b64decode(os.environ["GSHEET_JSON"]))
