@@ -1,10 +1,19 @@
 # ... 上はそのまま
 
 # スプレッドシートへ出力
+# Google Sheets認証設定
+scope = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+client = gspread.authorize(creds)
+
+# ✅ 必ずこの行を追加！
+sheet = client.open(SPREADSHEET_NAME).sheet1
+
+# スプレッドシートへ出力
 sheet.clear()
-df = pd.DataFrame(results)
-set_with_dataframe(sheet, df)
-print("\n✅ Googleスプレッドシートに出力完了しました！")
 
 # ✅ MySQLに保存開始
 import pymysql
