@@ -10,7 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}  # ← ✅ この位置が正しい
+      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASS: ${{ secrets.DB_PASS }}
+      DB_NAME: ${{ secrets.DB_NAME }}
 
     steps:
       - name: Checkout code
