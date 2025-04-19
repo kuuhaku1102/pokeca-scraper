@@ -1,0 +1,31 @@
+name: Pokeca URL Scraper (All-Card)
+
+on:
+  workflow_dispatch:  # ✅ 手動実行用
+  push:               # ✅ pushでも自動実行
+    branches:
+      - main
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    env:
+      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+
+    steps:
+      - name: ✅ Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: ✅ Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: ✅ Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: 🚀 Run Scraper
+        run: |
+          python scraper_allcard_links_1000.py
