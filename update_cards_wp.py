@@ -9,6 +9,11 @@ USERNAME = os.environ.get("WP_USER")
 APP_PASSWORD = os.environ.get("WP_APP_PASS")
 GAS_URL = os.environ.get("GAS_URL")
 
+headers = {
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
+
 print("🚀 スクリプト起動しました！")
 print(f"🧪 USERNAME: {USERNAME}")
 print(f"🧪 GAS_URL: {GAS_URL}")
@@ -43,7 +48,7 @@ for row in data:
 
     # 1. 既存ポストをチェック
     check_url = f"{WP_BASE}/card?slug={slug}"
-    check = requests.get(check_url, auth=(USERNAME, APP_PASSWORD))
+    check = requests.get(check_url, auth=(USERNAME, APP_PASSWORD), headers=headers)
 
     # 2. content部分（format形式に変更）
     content = """
@@ -73,11 +78,12 @@ for row in data:
     if check.status_code == 200 and check.json():
         post_id = check.json()[0]['id']
         update_url = f"{WP_BASE}/card/{post_id}"
-        r = requests.post(update_url, auth=(USERNAME, APP_PASSWORD), json=post_data)
+        r = requests.post(update_url, auth=(USERNAME, APP_PASSWORD), json=post_data, headers=headers)
         print(f"✅ Updated: {title}")
     else:
-        r = requests.post(f"{WP_BASE}/card", auth=(USERNAME, APP_PASSWORD), json=post_data)
+        r = requests.post(f"{WP_BASE}/card", auth=(USERNAME, APP_PASSWORD), json=post_data, headers=headers)
         print(f"🆕 Created: {title}")
         print(f"📩 投稿レスポンス: {r.status_code}")
         print(f"📦 内容: {r.text[:200]}")
-        print("✅ 全投稿処理が完了しました。")
+
+print("✅ 全投稿処理が完了しました。")
