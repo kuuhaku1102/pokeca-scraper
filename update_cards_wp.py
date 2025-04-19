@@ -22,7 +22,11 @@ data = res.json()
 print(f"📄 データ件数: {len(data)} 件")
 
 for row in data:
-    title = row.get("カード名", "")
+    title = row.get("カード名", "").strip()
+    if not title:
+        print("⚠️ カード名が空のデータをスキップしました。")
+        continue
+
     slug = slugify(title)
     print(f"⏳ 投稿チェック中: {title} ({slug})")
 
