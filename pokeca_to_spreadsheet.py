@@ -28,36 +28,35 @@ options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# トップページを開いてスクロール読み込み
-print("🔍 pokeca-chart.com を読み込み中...")
-driver.get("https://pokeca-chart.com/")
-last_height = driver.execute_script("return document.body.scrollHeight")
-scroll_attempts = 0
-while True:
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(1.5)
-    new_height = driver.execute_script("return document.body.scrollHeight")
-    if new_height == last_height:
-        scroll_attempts += 1
-        if scroll_attempts >= 3:
-            break
-    else:
-        scroll_attempts = 0
-    last_height = new_height
+# URLリスト初期化
+card_urls = []
 
-# カードURL一覧を取得
+# トップページから取得
+driver.get("https://pokeca-chart.com/")
+time.sleep(2)
 html = driver.page_source
 soup = BeautifulSoup(html, "html.parser")
 cards = soup.find_all("div", class_="cp_card04")
-card_urls = []
 for card in cards:
     a_tag = card.find("a", href=True)
     if a_tag and a_tag["href"].startswith("https://pokeca-chart.com/s"):
         card_urls.append(a_tag["href"])
-card_urls = list(set(card_urls))[:100]
-print(f"✅ カードURL取得数: {len(card_urls)} 件")
 
-# ヘッダーセット or 上書きチェック（最大1000行）
+# all-cardページから取得
+driver.get("https://pokeca-chart.com/all-card?mode=1")
+time.sleep(2)
+html = driver.page_source
+soup = BeautifulSoup(html, "html.parser")
+cards = soup.find_all("div", class_="cp_card04")
+for card in cards:
+    a_tag = card.find("a", href=True)
+    if a_tag and a_tag["href"].startswith("https://pokeca-chart.com/s"):
+        card_urls.append(a_tag["href"])
+
+card_urls = list(set(card_urls))[:800]
+print(f"✅ 合計カードURL数: {len(card_urls)}")
+
+# ヘッダー or リセット
 existing_card_names = sheet.col_values(1)
 if len(existing_card_names) >= 1000:
     sheet.clear()
@@ -67,7 +66,7 @@ if len(existing_card_names) >= 1000:
 else:
     next_row = len(existing_card_names) + 1
 
-# 各URLにアクセスして直近価格を取得
+# 各URLから詳細取得
 for url in card_urls:
     driver.get(url)
     time.sleep(3)
