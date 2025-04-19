@@ -8,7 +8,8 @@ USERNAME = 'blank'
 APP_PASSWORD = 'LWBX hVGw h23K r1ik sQMv 5pVO'
 
 # GAS JSON URL（シート2）
-GAS_URL = 'https://script.google.com/macros/s/AKfycb.../exec?sheet=シート2'
+GAS_URL = "https://script.google.com/macros/s/AKfycbxKsTu0RUAjNcxF3KFCgXX66ApxVouytSHisrrNHgJ-YN6QKyfTSYsAc4f9ismH2lB0Ww/exec"
+
 
 # GAS からデータを取得
 res = requests.get(GAS_URL)
