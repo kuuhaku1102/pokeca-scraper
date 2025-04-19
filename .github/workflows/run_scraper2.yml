@@ -1,8 +1,10 @@
 name: Pokeca URL Scraper (All-Card)
 
 on:
-  workflow_dispatch:  # ✅ 手動実行用
-  push:               # ✅ pushでも自動実行
+  schedule:
+    - cron: '0 0 * * *'  # JST 9:00（UTC 0:00）
+  workflow_dispatch:      # ✅ 手動でも実行可能
+  push:                   # ✅ mainブランチにpushされた時も実行
     branches:
       - main
 
