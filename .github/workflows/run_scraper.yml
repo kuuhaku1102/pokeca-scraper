@@ -10,7 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}  # ← ✅ 必ず2スペースでインデント
+      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASS: ${{ secrets.DB_PASS }}
+      DB_NAME: ${{ secrets.DB_NAME }}
 
     steps:
       - name: Checkout code
@@ -24,5 +28,5 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run detail scraper
+      - name: Run scraper
         run: python scraper.py
