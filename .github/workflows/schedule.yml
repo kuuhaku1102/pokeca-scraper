@@ -2,12 +2,13 @@ name: PokecaPriceUpdater
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # JST 9:00 相当（UTC 0:00）
+    - cron: '0 0 * * *'  # 毎日 JST 9:00 に実行
   workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    environment: GSHEET_JSON  # ✅ これを追加
 
     steps:
       - name: Checkout code
