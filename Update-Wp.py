@@ -4,8 +4,8 @@ from slugify import slugify
 
 # WordPress REST API 認証情報
 WP_BASE = 'https://oripa-gacha.online/wp-json/wp/v2'
-USERNAME = 'your_wp_username'
-APP_PASSWORD = 'your_app_password'
+USERNAME = 'blank'
+APP_PASSWORD = 'LWBX hVGw h23K r1ik sQMv 5pVO'
 
 # GAS JSON URL（シート2）
 GAS_URL = 'https://script.google.com/macros/s/AKfycb.../exec?sheet=シート2'
