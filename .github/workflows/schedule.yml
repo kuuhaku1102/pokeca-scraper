@@ -9,7 +9,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
 
-    env:  # ✅ Secretsをここで渡す！
+    env:
       GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
 
     steps:
