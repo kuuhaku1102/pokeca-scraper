@@ -1,0 +1,32 @@
+name: Update WordPress Cards
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # JST 9:00 (UTC+0 0:00)
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    env:
+      WP_USER: ${{ secrets.WP_USER }}
+      WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
+      GAS_URL: ${{ secrets.GAS_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests python-slugify
+
+      - name: Run update_cards_wp.py
+        run: |
+          python update_cards_wp.py
