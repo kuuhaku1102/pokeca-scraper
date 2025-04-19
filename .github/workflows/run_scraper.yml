@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+  GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+
 
     steps:
       - name: Checkout code
