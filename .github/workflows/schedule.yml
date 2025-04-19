@@ -7,7 +7,7 @@ on:
 
 jobs:
   run:
-   runs-on: ubuntu-latest  # ← ✅ ここだけでOK
+    runs-on: ubuntu-latest  # ✅ ← ここを揃える！
 
     steps:
       - name: Checkout code
@@ -23,4 +23,3 @@ jobs:
 
       - name: Run scraper
         run: python scraper.py
-
