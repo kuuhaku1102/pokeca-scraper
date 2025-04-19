@@ -53,7 +53,7 @@ for i, url in enumerate(urls, start=2):
         for row in table.find_all("tr"):
             tds = row.find_all("td")
             for td in tds[1:4]:
-                val = td.get_text(strip=True).replace(",", "").replace("円", "").replace("%", "").replace("(", "").replace(")", "")
+                val = td.get_text(strip=True)  # ← 修正済み：装飾そのままで取得
                 data.append(val)
     else:
         data = [""] * (len(sections) * len(labels))  # 空データ対応
