@@ -1,8 +1,8 @@
-# pokeca_to_spreadsheet.py（card04 + tableパース対応 完全版）
+# pokeca_to_spreadsheet.py（GitHub Actions対応 完全版）
 import base64, os
 with open("credentials.json", "wb") as f:
     f.write(base64.b64decode(os.environ["GSHEET_JSON"]))
-import os
+
 import time
 import requests
 from bs4 import BeautifulSoup
@@ -13,7 +13,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Google Sheets認証設定
 scope = [
@@ -27,18 +27,15 @@ client = gspread.authorize(creds)
 SPREADSHEET_NAME = "Pokecaカード一覧"
 sheet = client.open(SPREADSHEET_NAME).sheet1
 
-# Chrome設定（Selenium）
-CHROME_PATH = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-CHROMEDRIVER_PATH = r"C:\\Users\\junju\\chromedriver.exe"
+# Chrome設定（GitHub Actions対応 headless）
 options = Options()
-options.binary_location = CHROME_PATH
 options.add_argument("--headless")
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 
 # URLをトップページから取得
 print("🔍 トップページを読み込み中...")
-driver = webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=options)
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 driver.get("https://pokeca-chart.com/")
 
 # 🔁 スクロールして全カードを読み込む
