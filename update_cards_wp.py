@@ -61,19 +61,20 @@ for row in data:
         </ul>
     """.format(img=img, beauty=beauty, damaged=damaged, psa10=psa10)
 
-    post_data = {
-        'title': title,
-        'slug': slug,
-        'status': 'publish',
-        'content': content,
-        'fields': {
-            'card_image_url': img,
-            'card_name': title,
-            'price_beauty': beauty,
-            'price_damaged': damaged,
-            'price_psa10': psa10
-        }
+post_data = {
+    'title': title,
+    'slug': slug,
+    'status': 'publish',
+    'content': content,
+    'meta': {  # ← fields → meta に変更！
+        'card_image_url': img,
+        'card_name': title,
+        'price_beauty': beauty,
+        'price_damaged': damaged,
+        'price_psa10': psa10  # ← これが一覧ページの並び替え・検索に使えるようになる
     }
+}
+
 
     if check.status_code == 200 and check.json():
         post_id = check.json()[0]['id']
