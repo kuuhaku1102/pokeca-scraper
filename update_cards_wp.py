@@ -3,7 +3,7 @@ import json
 from slugify import slugify
 import os
 
-# WordPress REST API 認証情報（GitHub Secretsから取得）
+# WordPress REST API 認証情報
 WP_BASE = 'https://oripa-gacha.online/wp-json/wp/v2'
 USERNAME = os.environ.get("WP_USER")
 APP_PASSWORD = os.environ.get("WP_APP_PASS")
@@ -11,14 +11,13 @@ GAS_URL = os.environ.get("GAS_URL")
 
 headers = {
     "Content-Type": "application/json",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    "User-Agent": "Mozilla/5.0"
 }
 
 print("🚀 スクリプト起動しました！")
 print(f"🧪 USERNAME: {USERNAME}")
 print(f"🧪 GAS_URL: {GAS_URL}")
 
-# GAS からデータを取得
 res = requests.get(GAS_URL)
 print(f"🌐 GASレスポンスステータス: {res.status_code}")
 print(f"🧾 レスポンス冒頭: {res.text[:100]}")
@@ -46,39 +45,42 @@ for row in data:
     damaged = prices.get("キズあり", "-")
     psa10 = prices.get("PSA10", "-")
 
-    # 1. 既存ポストをチェック
-    check_url = f"{WP_BASE}/card?slug={slug}"
-    check = requests.get(check_url, auth=(USERNAME, APP_PASSWORD), headers=headers)
-
-    # 2. content部分（format形式に変更）
-    content = """
-        <p><img src='{img}'></p>
+    # 投稿本文
+    content = f"""
+        <p><img src="{img}"></p>
         <p>価格情報</p>
         <ul>
             <li>美品: {beauty}</li>
             <li>キズあり: {damaged}</li>
             <li>PSA10: {psa10}</li>
         </ul>
-    """.format(img=img, beauty=beauty, damaged=damaged, psa10=psa10)
+    """
 
-   post_data = {
-        'title': title,
-        'slug': slug,
-        'status': 'publish',
-        'content': content,
-        'fields': {
-            'card_image_url': img,
-            'card_name': title,
-            'price_beauty': beauty,
-            'price_damaged': damaged,
-            'price_psa10': psa10
-        },
-        'meta': {
-            'price_beauty': beauty.replace(",", "").replace("円", ""),
-            'price_damaged': damaged.replace(",", "").replace("円", ""),
-            'price_psa10': psa10.replace(",", "").replace("円", "")
-        }
+    meta = {
+        "直近価格JSON": json.dumps(prices),
+        "price_beauty": beauty.replace(",", "").replace("円", ""),
+        "price_damaged": damaged.replace(",", "").replace("円", ""),
+        "price_psa10": psa10.replace(",", "").replace("円", "")
     }
+
+    post_data = {
+        "title": title,
+        "slug": slug,
+        "status": "publish",
+        "content": content,
+        "fields": {
+            "card_image_url": img,
+            "card_name": title,
+            "price_beauty": beauty,
+            "price_damaged": damaged,
+            "price_psa10": psa10
+        },
+        "meta": meta
+    }
+
+    # 投稿の作成または更新
+    check_url = f"{WP_BASE}/card?slug={slug}"
+    check = requests.get(check_url, auth=(USERNAME, APP_PASSWORD), headers=headers)
 
     if check.status_code == 200 and check.json():
         post_id = check.json()[0]['id']
