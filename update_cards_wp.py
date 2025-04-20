@@ -1,4 +1,3 @@
-# update_cards_wp.py（画像URLを meta + fields に保存する完全版）
 import requests
 import json
 from slugify import slugify
@@ -48,7 +47,7 @@ for row in data:
 
     # 投稿本文
     content = f"""
-        <p><img src=\"{img}\"></p>
+        <p><img src="{img}" style="max-width:100%; height:auto;"></p>
         <p>価格情報</p>
         <ul>
             <li>美品: {beauty}</li>
@@ -57,37 +56,30 @@ for row in data:
         </ul>
     """
 
-    # WP標準カスタムフィールド（meta）に保存
+    # WordPress用のカスタムフィールド（meta）として保存
     meta = {
         "card_image_url": img,
-        "直近価格JSON": json.dumps(prices),
+        "card_name": title,
         "price_beauty": beauty.replace(",", "").replace("円", ""),
         "price_damaged": damaged.replace(",", "").replace("円", ""),
-        "price_psa10": psa10.replace(",", "").replace("円", "")
+        "price_psa10": psa10.replace(",", "").replace("円", ""),
+        "直近価格JSON": json.dumps(prices)
     }
 
-    # ACF用のfieldsにも保存
     post_data = {
         "title": title,
         "slug": slug,
         "status": "publish",
         "content": content,
-        "fields": {
-            "card_image_url": img,
-            "card_name": title,
-            "price_beauty": beauty,
-            "price_damaged": damaged,
-            "price_psa10": psa10
-        },
         "meta": meta
     }
 
-    # 投稿の作成または更新
+    # 既存投稿をチェック → 更新 or 新規作成
     check_url = f"{WP_BASE}/card?slug={slug}"
     check = requests.get(check_url, auth=(USERNAME, APP_PASSWORD), headers=headers)
 
     if check.status_code == 200 and check.json():
-        post_id = check.json()[0]['id']
+        post_id = check.json()[0]["id"]
         update_url = f"{WP_BASE}/card/{post_id}"
         r = requests.post(update_url, auth=(USERNAME, APP_PASSWORD), json=post_data, headers=headers)
         print(f"✅ Updated: {title}")
