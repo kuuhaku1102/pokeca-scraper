@@ -76,7 +76,6 @@ post_data = {
     'content': content,
     'meta': meta
 }
-}
 
 
     if check.status_code == 200 and check.json():
