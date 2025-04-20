@@ -62,23 +62,23 @@ for row in data:
     """.format(img=img, beauty=beauty, damaged=damaged, psa10=psa10)
 
    post_data = {
-    'title': title,
-    'slug': slug,
-    'status': 'publish',
-    'content': content,
-    'fields': {  # ACF 用（これまで通り）
-        'card_image_url': img,
-        'card_name': title,
-        'price_beauty': beauty,
-        'price_damaged': damaged,
-        'price_psa10': psa10
-    },
-    'meta': {  # WP 標準カスタムフィールド（WP_Query・get_post_meta対応）
-        'price_beauty': beauty.replace(",", "").replace("円", ""),
-        'price_damaged': damaged.replace(",", "").replace("円", ""),
-        'price_psa10': psa10.replace(",", "").replace("円", "")
+        'title': title,
+        'slug': slug,
+        'status': 'publish',
+        'content': content,
+        'fields': {
+            'card_image_url': img,
+            'card_name': title,
+            'price_beauty': beauty,
+            'price_damaged': damaged,
+            'price_psa10': psa10
+        },
+        'meta': {
+            'price_beauty': beauty.replace(",", "").replace("円", ""),
+            'price_damaged': damaged.replace(",", "").replace("円", ""),
+            'price_psa10': psa10.replace(",", "").replace("円", "")
+        }
     }
-}
 
     if check.status_code == 200 and check.json():
         post_id = check.json()[0]['id']
