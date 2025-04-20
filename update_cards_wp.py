@@ -1,3 +1,4 @@
+# update_cards_wp.py（画像URLを meta + fields に保存する完全版）
 import requests
 import json
 from slugify import slugify
@@ -47,7 +48,7 @@ for row in data:
 
     # 投稿本文
     content = f"""
-        <p><img src="{img}"></p>
+        <p><img src=\"{img}\"></p>
         <p>価格情報</p>
         <ul>
             <li>美品: {beauty}</li>
@@ -56,13 +57,16 @@ for row in data:
         </ul>
     """
 
+    # WP標準カスタムフィールド（meta）に保存
     meta = {
+        "card_image_url": img,
         "直近価格JSON": json.dumps(prices),
         "price_beauty": beauty.replace(",", "").replace("円", ""),
         "price_damaged": damaged.replace(",", "").replace("円", ""),
         "price_psa10": psa10.replace(",", "").replace("円", "")
     }
 
+    # ACF用のfieldsにも保存
     post_data = {
         "title": title,
         "slug": slug,
