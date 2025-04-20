@@ -1,9 +1,10 @@
+# update_cards_wp.py（完全構文修正版）
 import requests
 import json
 from slugify import slugify
 import os
 
-# WordPress REST API 認証情報（GitHub Secretsから取得）
+# WordPress REST API 認証情報（GitHub Secretsなどから取得）
 WP_BASE = 'https://oripa-gacha.online/wp-json/wp/v2'
 USERNAME = os.environ.get("WP_USER")
 APP_PASSWORD = os.environ.get("WP_APP_PASS")
@@ -52,7 +53,7 @@ for row in data:
 
     # 投稿本文の構成
     content = f"""
-        <p><img src="{img}"></p>
+        <p><img src=\"{img}\"></p>
         <p>価格情報</p>
         <ul>
             <li>美品: {beauty}</li>
@@ -61,7 +62,7 @@ for row in data:
         </ul>
     """
 
-    # メタデータとして保存（ここが重要！）
+    # メタデータとして保存
     meta = {
         "直近価格JSON": json.dumps(prices),
         "price_beauty": beauty.replace(",", "").replace("円", ""),
@@ -87,6 +88,5 @@ for row in data:
         print(f"🆕 Created: {title}")
         print(f"📩 投稿レスポンス: {r.status_code}")
         print(f"📦 内容: {r.text[:200]}")
-
 
 print("✅ 全投稿処理が完了しました。")
