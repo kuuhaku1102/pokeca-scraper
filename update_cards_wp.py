@@ -46,37 +46,36 @@ for row in data:
     damaged = prices.get("キズあり", "-")
     psa10 = prices.get("PSA10", "-")
 
-    # 1. 既存ポストをチェック
+    # 既存ポストをチェック
     check_url = f"{WP_BASE}/card?slug={slug}"
     check = requests.get(check_url, auth=(USERNAME, APP_PASSWORD), headers=headers)
 
-    # 2. content部分（format形式に変更）
-    content = """
-        <p><img src='{img}'></p>
+    # 投稿本文の構成
+    content = f"""
+        <p><img src="{img}"></p>
         <p>価格情報</p>
         <ul>
             <li>美品: {beauty}</li>
             <li>キズあり: {damaged}</li>
             <li>PSA10: {psa10}</li>
         </ul>
-    """.format(img=img, beauty=beauty, damaged=damaged, psa10=psa10)
+    """
 
-# 投稿データのメタ情報
-meta = {
-    "直近価格JSON": json.dumps(prices),
-    "price_beauty": prices.get("美品", "").replace(",", "").replace("円", ""),
-    "price_damaged": prices.get("キズあり", "").replace(",", "").replace("円", ""),
-    "price_psa10": prices.get("PSA10", "").replace(",", "").replace("円", "")
-}
+    # メタデータとして保存（ここが重要！）
+    meta = {
+        "直近価格JSON": json.dumps(prices),
+        "price_beauty": beauty.replace(",", "").replace("円", ""),
+        "price_damaged": damaged.replace(",", "").replace("円", ""),
+        "price_psa10": psa10.replace(",", "").replace("円", "")
+    }
 
-post_data = {
-    'title': title,
-    'slug': slug,
-    'status': 'publish',
-    'content': content,
-    'meta': meta
-}
-
+    post_data = {
+        'title': title,
+        'slug': slug,
+        'status': 'publish',
+        'content': content,
+        'meta': meta
+    }
 
     if check.status_code == 200 and check.json():
         post_id = check.json()[0]['id']
@@ -88,5 +87,6 @@ post_data = {
         print(f"🆕 Created: {title}")
         print(f"📩 投稿レスポンス: {r.status_code}")
         print(f"📦 内容: {r.text[:200]}")
+
 
 print("✅ 全投稿処理が完了しました。")
