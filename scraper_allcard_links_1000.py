@@ -65,6 +65,6 @@ print(f"✅ 取得URL数: {len(card_urls)} 件")
 ws.clear()
 ws.update("A1", [["カード詳細URL"]])
 if card_urls:
-    ws.update(f"A2:A{len(card_urls)+1}", card_urls)
+    ws.update(f"B2:B{len(card_urls)+1}", card_urls)
 
 driver.quit()
