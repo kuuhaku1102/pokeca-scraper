@@ -35,16 +35,19 @@ time.sleep(2)
 # スクロールを多めに（例：40回）
 last_height = driver.execute_script("return document.body.scrollHeight")
 scroll_attempts = 0
-for _ in range(40):
+
+while True:
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     time.sleep(1.5)
     new_height = driver.execute_script("return document.body.scrollHeight")
+    
     if new_height == last_height:
         scroll_attempts += 1
-        if scroll_attempts >= 3:
+        if scroll_attempts >= 3:  # 高さ変化が3回続けて無ければ終了
             break
     else:
-        scroll_attempts = 0
+        scroll_attempts = 0  # 高さが変わったらリセット
+
     last_height = new_height
 
 # HTML取得・パース
