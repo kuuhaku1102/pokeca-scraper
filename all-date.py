@@ -32,7 +32,7 @@ options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 # データ書き込み（B列以降）
-ws.update("B1:D1", [["カード名", "画像URL", "直近価格JSON"]])
+ws.update("B2:D2", [["カード名", "画像URL", "直近価格JSON"]])
 
 for i, url in enumerate(urls, start=2):
     driver.get(url)
