@@ -35,39 +35,31 @@ time.sleep(2)
 # スクロールを多めに（例：40回）
 from selenium.webdriver.common.by import By
 
+MAX_SCROLLS = 1000
 last_height = driver.execute_script("return document.body.scrollHeight")
 scroll_attempts = 0
 no_change_count = 0
 previous_count = 0
 
-while True:
+for scroll_index in range(MAX_SCROLLS):
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(3)  # ← 読み込み遅延対応で長め
+    time.sleep(3)  # スクロール直後の遅延に対応
 
-    # スクロール高さの確認
-    new_height = driver.execute_script("return document.body.scrollHeight")
-
-    if new_height == last_height:
-        scroll_attempts += 1
-    else:
-        scroll_attempts = 0
-    last_height = new_height
-
-    # cp_cardの件数変化をチェック
+    # 新しいカードが読み込まれたかを確認
     cards = driver.find_elements(By.CLASS_NAME, "cp_card")
     current_count = len(cards)
 
     if current_count == previous_count:
         no_change_count += 1
+        if no_change_count >= 5:  # ←連続して変化がなければ終了
+            print("✅ スクロール終了条件に達しました")
+            break
     else:
         no_change_count = 0
+
     previous_count = current_count
 
-    # どちらかが一定回数以上変化しなければ停止
-    if scroll_attempts >= 3 or no_change_count >= 3:
-        print("✅ スクロール終了条件に達しました")
-        break
-
+    print(f"🔁 スクロール {scroll_index+1} 回目: 現在 {current_count} 件")
 
 # HTML取得・パース
 html = driver.page_source
