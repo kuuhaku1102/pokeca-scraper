@@ -28,17 +28,21 @@ options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# モードごとのURL取得処理
-mode_list = [1, 2, 3]  # 必要に応じて追加
-base_url = "https://pokeca-chart.com/all-card?mode="
-
+# 取得処理開始
+mode = 1
 all_card_urls = []
 
-for mode in mode_list:
-    url = f"{base_url}{mode}"
+while True:
+    url = f"https://pokeca-chart.com/all-card?mode={mode}"
     print(f"▶ モード {mode} のカード取得開始")
     driver.get(url)
     time.sleep(2)
+
+    # 初回チェック（カードが1枚もないなら終了）
+    cards = driver.find_elements(By.CLASS_NAME, "cp_card")
+    if len(cards) == 0:
+        print(f"❌ モード {mode} にはカードが存在しないため終了")
+        break
 
     # スクロール処理
     last_height = driver.execute_script("return document.body.scrollHeight")
@@ -72,12 +76,10 @@ for mode in mode_list:
         if a_tag and a_tag["href"].startswith("https://pokeca-chart.com/s"):
             all_card_urls.append([a_tag["href"]])
 
-    print(f"✅ モード {mode} での取得完了。現在の合計URL数: {len(all_card_urls)}")
+    print(f"✅ モード {mode} の取得完了。累計URL数: {len(all_card_urls)}")
+    mode += 1  # 次のモードへ
 
-# 重複除去（任意）
-all_card_urls = list(map(list, set(map(tuple, all_card_urls))))  # ネストリスト形式で保持
-
-# スプレッドシート出力（A列）
+# スプレッドシート出力（重複除去なし）
 ws.clear()
 ws.update("A1", [["カード詳細URL"]])
 if all_card_urls:
