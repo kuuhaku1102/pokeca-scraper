@@ -67,22 +67,23 @@ for mode in range(1, 21):
         previous_count = current_count
         print(f"🔁 モード {mode} - スクロール {scroll_index+1} 回目: 現在 {current_count} 件")
 
-    # HTMLパース
-    html = driver.page_source
-    soup = BeautifulSoup(html, "html.parser")
-    cards = soup.find_all("div", class_="cp_card")
+# HTMLパース
+html = driver.page_source
+soup = BeautifulSoup(html, "html.parser")
+links = soup.find_all("a", href=True)
 
-    mode_new_count = 0
-    for card in cards:
-        a_tag = card.find("a", href=True)
-        if a_tag:
-            href = a_tag["href"]
-            if href.startswith("https://pokeca-chart.com/s") and href not in existing_urls:
-                new_card_urls.append([href])
-                existing_urls.add(href)
-                mode_new_count += 1
+mode_new_count = 0
+for a_tag in links:
+    href = a_tag["href"]
+    # カード詳細ページだけを抽出（検索ページやall-cardなどを除外）
+    if href.startswith("https://pokeca-chart.com/") and "/all-card" not in href and "/search" not in href:
+        if href not in existing_urls:
+            new_card_urls.append([href])
+            existing_urls.add(href)
+            mode_new_count += 1
 
-    print(f"✅ モード {mode} 完了：新規 {mode_new_count} 件")
+print(f"✅ モード {mode} 完了：新規 {mode_new_count} 件")
+
 
 # スプレッドシート出力（追記のみ）
 last_row = len(ws.col_values(1))
