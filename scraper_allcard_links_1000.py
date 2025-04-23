@@ -21,21 +21,20 @@ client = gspread.authorize(creds)
 sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 ws = sheet.worksheet("シート2")
 
-# 既存のURL（A列）を取得し、setで管理
-existing_urls = set(ws.col_values(1)[1:])  # A2以降
+# 既存のURLを取得（A列）
+existing_urls = set(ws.col_values(1)[1:])  # A2〜以降
 
-# Chrome起動設定（headless）
+# Chrome設定
 options = Options()
 options.add_argument('--headless')
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# モード探索開始
-mode = 1
+# mode=1〜20 を全て探索
 new_card_urls = []
 
-while True:
+for mode in range(1, 21):
     url = f"https://pokeca-chart.com/all-card?mode={mode}"
     print(f"▶ モード {mode} のカード取得開始")
     driver.get(url)
@@ -43,8 +42,8 @@ while True:
 
     cards = driver.find_elements(By.CLASS_NAME, "cp_card")
     if len(cards) == 0:
-        print(f"❌ モード {mode} にカードが存在しないため終了")
-        break
+        print(f"❌ モード {mode} は無効またはカードが存在しません。スキップ")
+        continue
 
     # スクロール処理
     last_height = driver.execute_script("return document.body.scrollHeight")
@@ -68,11 +67,12 @@ while True:
         previous_count = current_count
         print(f"🔁 モード {mode} - スクロール {scroll_index+1} 回目: 現在 {current_count} 件")
 
-    # HTML取得・パース
+    # HTMLパース
     html = driver.page_source
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.find_all("div", class_="cp_card")
 
+    mode_new_count = 0
     for card in cards:
         a_tag = card.find("a", href=True)
         if a_tag:
@@ -80,21 +80,17 @@ while True:
             if href.startswith("https://pokeca-chart.com/s") and href not in existing_urls:
                 new_card_urls.append([href])
                 existing_urls.add(href)
+                mode_new_count += 1
 
-    print(f"✅ モード {mode} の取得完了。新規URL数: {len(new_card_urls)}")
-    mode += 1
+    print(f"✅ モード {mode} 完了：新規 {mode_new_count} 件")
 
-# 書き込み（ヘッダーがなければ追加、既存データは保持）
+# スプレッドシート出力（追記のみ）
 last_row = len(ws.col_values(1))
-if last_row == 0:
-    ws.update("A1", [["カード詳細URL"]])
-    start_row = 2
-else:
-    start_row = last_row + 1
+start_row = last_row + 1 if last_row else 2
 
 if new_card_urls:
     ws.update(f"A{start_row}:A{start_row + len(new_card_urls) - 1}", new_card_urls)
-    print(f"✅ 新規 {len(new_card_urls)} 件のURLをスプレッドシートへ追記しました")
+    print(f"✅ 合計 {len(new_card_urls)} 件の新規URLをスプレッドシートへ追記しました")
 else:
     print("⚠ 新規URLはありませんでした")
 
