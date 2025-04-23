@@ -4,6 +4,7 @@ import base64
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import gspread
@@ -27,66 +28,60 @@ options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# pokeca-chart all-cardページにアクセスしてスクロール（1000件以上を目指す）
-url = "https://pokeca-chart.com/all-card?mode=1"
-driver.get(url)
-time.sleep(2)
+# モードごとのURL取得処理
+mode_list = [1, 2, 3]  # 必要に応じて追加
+base_url = "https://pokeca-chart.com/all-card?mode="
 
-# スクロールを多めに（例：40回）
-from selenium.webdriver.common.by import By
+all_card_urls = []
 
-MAX_SCROLLS = 1000
-last_height = driver.execute_script("return document.body.scrollHeight")
-scroll_attempts = 0
-no_change_count = 0
-previous_count = 0
+for mode in mode_list:
+    url = f"{base_url}{mode}"
+    print(f"▶ モード {mode} のカード取得開始")
+    driver.get(url)
+    time.sleep(2)
 
-for scroll_index in range(MAX_SCROLLS):
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(3)  # スクロール直後の遅延に対応
+    # スクロール処理
+    last_height = driver.execute_script("return document.body.scrollHeight")
+    no_change_count = 0
+    previous_count = 0
 
-    # 新しいカードが読み込まれたかを確認
-    cards = driver.find_elements(By.CLASS_NAME, "cp_card")
-    current_count = len(cards)
+    for scroll_index in range(1000):
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(3)
+        cards = driver.find_elements(By.CLASS_NAME, "cp_card")
+        current_count = len(cards)
 
-    if current_count == previous_count:
-        no_change_count += 1
-        if no_change_count >= 5:  # ←連続して変化がなければ終了
-            print("✅ スクロール終了条件に達しました")
-            break
-    else:
-        no_change_count = 0
+        if current_count == previous_count:
+            no_change_count += 1
+            if no_change_count >= 5:
+                print("✅ スクロール終了条件に達しました")
+                break
+        else:
+            no_change_count = 0
 
-    previous_count = current_count
+        previous_count = current_count
+        print(f"🔁 モード {mode} - スクロール {scroll_index+1} 回目: 現在 {current_count} 件")
 
-    print(f"🔁 スクロール {scroll_index+1} 回目: 現在 {current_count} 件")
+    # HTML取得・パース
+    html = driver.page_source
+    soup = BeautifulSoup(html, "html.parser")
+    cards = soup.find_all("div", class_="cp_card")
 
-# HTML取得・パース
-html = driver.page_source
-soup = BeautifulSoup(html, "html.parser")
-cards = soup.find_all("div", class_="cp_card")
+    for card in cards:
+        a_tag = card.find("a", href=True)
+        if a_tag and a_tag["href"].startswith("https://pokeca-chart.com/s"):
+            all_card_urls.append([a_tag["href"]])
 
-# URL一覧抽出
-card_urls = []
-for card in cards:
-    a_tag = card.find("a", href=True)
-    if a_tag and a_tag["href"].startswith("https://pokeca-chart.com/s"):
-        card_urls.append([a_tag["href"]])
+    print(f"✅ モード {mode} での取得完了。現在の合計URL数: {len(all_card_urls)}")
 
-print(f"✅ 取得URL数: {len(card_urls)} 件")
+# 重複除去（任意）
+all_card_urls = list(map(list, set(map(tuple, all_card_urls))))  # ネストリスト形式で保持
 
-# スプレッドシートのシート2へ出力
-# スプレッドシートのシート2へ出力（ヘッダー行を保持）
-num_rows = len(ws.col_values(1))
-if num_rows > 1:
-    ws.batch_clear([f"A2:A{num_rows}"])  # 2行目以降をクリア
+# スプレッドシート出力（A列）
+ws.clear()
+ws.update("A1", [["カード詳細URL"]])
+if all_card_urls:
+    ws.update(f"A2:A{len(all_card_urls)+1}", all_card_urls)
 
-# ヘッダーがない場合のみ挿入（例外対策）
-if not ws.cell(1, 1).value:
-    ws.update("A1", [["カード詳細URL"]])
-
-# データをA2から出力
-if card_urls:
-    ws.update(f"A2:A{len(card_urls)+1}", card_urls)
-
+print(f"✅ スプレッドシートへ {len(all_card_urls)} 件のURLを出力しました")
 driver.quit()
