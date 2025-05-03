@@ -10,34 +10,38 @@ from bs4 import BeautifulSoup
 import gspread
 from google.oauth2.service_account import Credentials
 
-# 環境変数から認証情報を書き出し
+# Google Sheets 認証設定
 with open("credentials.json", "w") as f:
     f.write(base64.b64decode(os.environ["GSHEET_JSON"]).decode("utf-8"))
 
-# Google Sheets 認証
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
 gc = gspread.authorize(creds)
 
-# スプレッドシートとシート名指定
+# スプレッドシートとシートの指定
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("oripaone")
 
-# Chrome headless オプション
+# ヘッダーの更新
+sheet.update("A1", [["タイトル", "画像URL", "URL"]])
+
+# Seleniumの設定
 options = Options()
 options.add_argument('--headless')
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-# oripaone トップページ取得
+# oripaone.jpのトップページにアクセス
 print("🔍 oripaone スクレイピング開始...")
 driver.get("https://oripaone.jp/")
-time.sleep(3)
+time.sleep(5)  # ページの読み込みを待機
+
+# ページソースを取得し、BeautifulSoupで解析
 soup = BeautifulSoup(driver.page_source, "html.parser")
 
-# カード一覧ブロック抽出（クラス構成が動的なため shadow などの一部で検出）
-cards = soup.find_all("div", attrs={"class": lambda x: x and "shadow" in x and "overflow-hidden" in x})
+# カード要素を取得
+cards = soup.find_all("div", class_="relative overflow-hidden rounded bg-white shadow")
 
 results = []
 for card in cards:
@@ -50,11 +54,10 @@ for card in cards:
         title = img_tag.get("alt", "") or "pack"
         results.append([title, image_url, url])
 
-# スプレッドシートに出力
-if results:
-    sheet.clear()
-    sheet.update(values=[["タイトル", "画像URL", "URL"]])
-    sheet.update(values=results, range_name=f"A2")
+driver.quit()
+
 print(f"✅ 取得件数: {len(results)} 件")
 
-driver.quit()
+# スプレッドシートに書き込み
+if results:
+    sheet.update("A2", results)
