@@ -2,7 +2,7 @@ name: Scrape Oripa Dash
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 毎日00:00 UTC（日本時間9:00）
+    - cron: '0 */3 * * *'  # 毎日3時間ごと（00:00, 03:00, 06:00... UTC）
   workflow_dispatch:
 
 jobs:
