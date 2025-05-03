@@ -1,57 +1,45 @@
-# scrape_oripaone_to_sheets.py
 import os
-import time
 import base64
-import json
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+import requests
 from bs4 import BeautifulSoup
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 
-# Google Sheets 認証
+# 認証ファイル作成
 with open("credentials.json", "wb") as f:
     f.write(base64.b64decode(os.environ["GSHEET_JSON"]))
 
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-gc = gspread.authorize(creds)
+# スプレッドシート認証と接続
+scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+credentials = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+gc = gspread.authorize(credentials)
 
-sheet = gc.open("oripaone").sheet1
+# 対象スプレッドシートとシート名
+SPREADSHEET_ID = "11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE"
+SHEET_NAME = "oripaone"
+sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
-# Chrome起動 (headless)
-options = Options()
-options.add_argument("--headless")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+# スクレイピング対象URL
+url = "https://oripaone.jp/"
+print("🔍 oripaone スクレイピング開始...")
 
-print("\U0001F50D oripaone スクレイピング開始...")
-driver.get("https://oripaone.jp/")
-time.sleep(3)
-soup = BeautifulSoup(driver.page_source, "html.parser")
+response = requests.get(url)
+soup = BeautifulSoup(response.text, "html.parser")
 
-cards = soup.select("div.relative.overflow-hidden.rounded.bg-white.shadow")
+cards = soup.select("div.relative.rounded.shadow img")
 data = []
+
 for card in cards:
-    a_tag = card.find("a", href=True)
-    img_tag = card.find("img")
-    if a_tag and img_tag:
-        detail_url = "https://oripaone.jp" + a_tag["href"]
-        img_url = img_tag["src"]
-        title = "オリパワン商品"
-        data.append([title, img_url, detail_url])
+    img_url = card.get("src")
+    if img_url and img_url.startswith("https://"):
+        data.append([img_url])
 
-print(f"\u2705 取得件数: {len(data)} 件")
+print(f"✅ 取得件数: {len(data)} 件")
 
-if data:
+# ヘッダーがなければセット
+if sheet.row_count < 1 or sheet.cell(1, 1).value != "画像URL":
     sheet.clear()
-    sheet.append_row(["タイトル", "画像URL", "URL"])
-    for row in data:
-        sheet.append_row(row)
+    sheet.append_row(["画像URL"])
 
-
-# 終了
-driver.quit()
+for row in data:
+    sheet.append_row(row)
