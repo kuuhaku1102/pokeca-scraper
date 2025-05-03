@@ -6,7 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 def scrape_oripa_dash():
-    """オリパダッシュのガチャリストをスクレイピングし、[タイトル, 画像URL] のリストを返す"""
+    """オリパダッシュのガチャタイトルと画像URLを取得"""
     url = "https://oripa-dash.com/user/packList"
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -14,16 +14,18 @@ def scrape_oripa_dash():
 
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-
     soup = BeautifulSoup(response.text, "html.parser")
+
     results = []
+    items = soup.select(".packList__item")
 
-    for item in soup.select(".userPagePackList__item"):
-        title_tag = item.select_one(".userPagePackList__name")
-        img_tag = item.select_one("img")
+    for item in items:
+        # タイトルは data-pack-name にある
+        title = item.get("data-pack-name", "No Title").strip()
 
-        title = title_tag.text.strip() if title_tag else "No Title"
-        img_url = img_tag.get("src", "") if img_tag else ""
+        # 画像URLは img.packList__item-thumbnail の src 属性
+        img_tag = item.select_one("img.packList__item-thumbnail")
+        img_url = img_tag.get("src") if img_tag else ""
 
         if img_url.startswith("/"):
             img_url = "https://oripa-dash.com" + img_url
@@ -33,23 +35,19 @@ def scrape_oripa_dash():
     return results
 
 def save_to_sheet(data):
-    """Google Sheets の 'OripaGachaList' → 'dash' シートにデータを保存"""
+    """Google Sheets 'OripaGachaList' の 'dash' シートに書き込み"""
     gsheet_json = os.getenv("GSHEET_JSON")
     if not gsheet_json:
         raise EnvironmentError("GSHEET_JSON 環境変数が未設定です。")
 
-    try:
-        creds_dict = json.loads(gsheet_json)
-    except json.JSONDecodeError as e:
-        raise ValueError("GSHEET_JSON の形式が不正です。") from e
-
+    creds_dict = json.loads(gsheet_json)
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
     client = gspread.authorize(credentials)
     sheet = client.open("OripaGachaList").worksheet("dash")
 
-    # データ初期化 & ヘッダー書き込み
+    # 初期化 & ヘッダー挿入
     sheet.clear()
     sheet.append_row(["タイトル", "画像URL"])
 
