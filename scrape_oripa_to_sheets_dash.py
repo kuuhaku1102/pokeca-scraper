@@ -1,66 +1,78 @@
-import requests
+import time
+import os
+import base64
+import json
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime
-import os
 
-# 環境変数から読み込み
-SPREADSHEET_NAME = os.getenv("GSHEET_NAME", "OripaGachaList")
-WORKSHEET_NAME = os.getenv("GSHEET_SHEET", "dash")
-CREDENTIALS_FILE = os.getenv("GSHEET_JSON", "credentials.json")
-WP_URL = os.getenv("WP_URL")
-WP_USER = os.getenv("WP_USER")
-WP_APP_PASS = os.getenv("WP_APP_PASS")
+# ======== 認証ファイル保存 ========
+CREDENTIALS_FILE = "credentials.json"
+encoded_json = os.environ.get("GSHEET_JSON", "")
+if not encoded_json:
+    raise Exception("❌ GSHEET_JSON が空です。base64文字列を GitHub Secrets に登録してください。")
 
-def scrape_oripa_dash():
-    url = "https://oripa-dash.com/user/packList"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    res = requests.get(url, headers=headers)
-    res.raise_for_status()
-    soup = BeautifulSoup(res.text, "html.parser")
+with open(CREDENTIALS_FILE, "wb") as f:
+    f.write(base64.b64decode(encoded_json))
 
-    pack_list = []
-    for item in soup.select(".cardListItem"):
-        title = item.select_one(".title").text.strip()
-        date = item.select_one(".date").text.strip()
-        href = item.select_one("a")["href"]
-        pack_id = href.split("/")[-1]
-        link = f"https://oripa-dash.com/user/itemDetail?id={pack_id}"
-        pack_list.append([title, date, link])
+# ======== Google Sheets 認証 ========
+scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scopes)
+client = gspread.authorize(credentials)
+sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit").worksheet("dash")
 
-    return pack_list
+# ======== Chrome起動（headless） ========
+options = Options()
+options.add_argument('--headless')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-def save_to_sheet(data):
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scopes)
-    gc = gspread.authorize(credentials)
-    sh = gc.open(SPREADSHEET_NAME)
-    ws = sh.worksheet(WORKSHEET_NAME)
-    ws.clear()
-    ws.append_row(["タイトル", "日付", "URL"])
-    for row in data:
-        ws.append_row(row)
+# ======== oripa-dash ページ読み込み＋スクロール ========
+print("🔍 oripa-dash.com を読み込み中...")
+driver.get("https://oripa-dash.com/user/packList")
+time.sleep(2)
 
-def post_to_wordpress(title, date, link):
-    endpoint = f"{WP_URL}/wp-json/wp/v2/posts"
-    auth = (WP_USER, WP_APP_PASS)
-    content = f"<p>更新日: {date}</p><p><a href='{link}'>{link}</a></p>"
-    post_data = {
-        "title": title,
-        "content": content,
-        "status": "publish"
-    }
-    res = requests.post(endpoint, json=post_data, auth=auth)
-    res.raise_for_status()
-    print(f"投稿成功: {res.json().get('link')}")
+last_height = driver.execute_script("return document.body.scrollHeight")
+scroll_attempts = 0
+while True:
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(1.5)
+    new_height = driver.execute_script("return document.body.scrollHeight")
+    if new_height == last_height:
+        scroll_attempts += 1
+        if scroll_attempts >= 3:
+            break
+    else:
+        scroll_attempts = 0
+    last_height = new_height
 
-def main():
-    data = scrape_oripa_dash()
-    save_to_sheet(data)
-    # 最初の1件だけ投稿（本番運用ではループ可能）
-    if data:
-        post_to_wordpress(data[0][0], data[0][1], data[0][2])
+# ======== HTMLパース & データ抽出 ========
+soup = BeautifulSoup(driver.page_source, "html.parser")
+items = soup.select(".packList__item")
 
-if __name__ == "__main__":
-    main()
+result = [["タイトル", "画像URL", "URL"]]
+for item in items:
+    title = item.get("data-pack-name", "No Title").strip()
+    pack_id = item.get("data-pack-id", "").strip()
+    url = f"https://oripa-dash.com/user/packDetail/{pack_id}" if pack_id else ""
+
+    img_tag = item.select_one("img.packList__item-thumbnail")
+    img_url = img_tag.get("src") if img_tag else ""
+    if img_url.startswith("/"):
+        img_url = "https://oripa-dash.com" + img_url
+
+    result.append([title, img_url, url])
+
+print(f"🟢 取得件数: {len(result)-1} 件")
+
+# ======== スプレッドシートに保存 ========
+sheet.clear()
+sheet.append_rows(result)
+print("✅ Google Sheets に保存完了")
+
+driver.quit()
