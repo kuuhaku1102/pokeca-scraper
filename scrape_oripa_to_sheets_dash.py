@@ -27,7 +27,7 @@ def get_sheet():
         "https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit"
     ).worksheet("dash")
 
-def scrape_oripa():
+def scrape_oripa(existing_image_urls):
     options = Options()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -38,7 +38,6 @@ def scrape_oripa():
     driver.get("https://oripa-dash.com/user/packList")
     time.sleep(2)
 
-    # ⬇ スクロール読み込み
     last_height = driver.execute_script("return document.body.scrollHeight")
     scroll_attempts = 0
     while True:
@@ -53,11 +52,10 @@ def scrape_oripa():
             scroll_attempts = 0
         last_height = new_height
 
-    # 🔍 HTML抽出
     soup = BeautifulSoup(driver.page_source, "html.parser")
     items = soup.select(".packList__item")
 
-    result = [["タイトル", "画像URL", "URL"]]
+    result = []
     for item in items:
         title = item.get("data-pack-name", "No Title").strip()
         pack_id = item.get("data-pack-id", "").strip()
@@ -68,20 +66,28 @@ def scrape_oripa():
         if img_url.startswith("/"):
             img_url = "https://oripa-dash.com" + img_url
 
+        if img_url in existing_image_urls:
+            continue  # 既にある画像はスキップ
+
         result.append([title, img_url, url])
 
     driver.quit()
     return result
 
-def save_to_sheet(data, sheet):
-    sheet.clear()
-    sheet.append_rows(data)
-    print(f"✅ {len(data)-1} 件のデータを dash シートに保存しました。")
+def save_to_sheet(new_data, sheet):
+    if not new_data:
+        print("✅ 追記対象なし（全て既存）")
+        return
+    sheet.append_rows(new_data)
+    print(f"✅ {len(new_data)} 件を追記しました。")
 
 def main():
-    data = scrape_oripa()
     sheet = get_sheet()
-    save_to_sheet(data, sheet)
+    existing_data = sheet.get_all_values()
+    existing_image_urls = [row[1] for row in existing_data[1:] if len(row) > 1]  # B列
+
+    new_data = scrape_oripa(existing_image_urls)
+    save_to_sheet(new_data, sheet)
 
 if __name__ == "__main__":
     main()
