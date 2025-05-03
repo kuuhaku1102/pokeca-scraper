@@ -1,65 +1,63 @@
 import os
 import base64
 import json
-import time
+import requests
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 import gspread
 from google.oauth2.service_account import Credentials
 
-def save_to_sheet(data):
-    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    credentials_json = os.environ.get("GSHEET_JSON")
-    if not credentials_json:
-        raise Exception("❌ 環境変数 'GSHEET_JSON' が見つかりません")
+# 認証ファイルの生成
+CREDENTIALS_FILE = "credentials.json"
+with open(CREDENTIALS_FILE, "w") as f:
+    f.write(base64.b64decode(os.environ["GSHEET_JSON"]).decode())
 
-    with open("credentials.json", "wb") as f:
-        f.write(base64.b64decode(credentials_json))
+# Google Sheets認証
+scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scopes)
+gc = gspread.authorize(credentials)
 
-    credentials = Credentials.from_service_account_file("credentials.json", scopes=scopes)
-    gc = gspread.authorize(credentials)
-    sheet = gc.open("oripaone").sheet1
-
-    sheet.clear()
-    sheet.append_row(["タイトル", "画像URL", "詳細URL"])
-    for row in data:
-        sheet.append_row([row['title'], row['img'], row['url']])
+# スプレッドシートURLで開く
+sheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit").sheet1
 
 def scrape_oripaone():
-    options = Options()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    url = "https://oripaone.jp/"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    res = requests.get(url, headers=headers)
+    soup = BeautifulSoup(res.text, "html.parser")
 
-    driver.get("https://oripaone.jp/")
-    time.sleep(3)
-    soup = BeautifulSoup(driver.page_source, "html.parser")
+    card_divs = soup.select("div.grid > div.relative.bg-white.shadow")
+    results = []
+    for card in card_divs:
+        a_tag = card.find("a", href=True)
+        img_tag = card.find("img", src=True)
+        if a_tag and img_tag:
+            full_url = "https://oripaone.jp" + a_tag["href"]
+            img_url = img_tag["src"]
+            title = img_tag.get("alt", "").strip() or "No Title"
+            results.append([title, img_url, full_url])
+    return results
 
-    data = []
-    cards = soup.select(".grid > div.relative")
-    for card in cards:
-        a_tag = card.find("a")
-        if a_tag:
-            href = a_tag.get("href")
-            url = f"https://oripaone.jp{href}"
-            img_tag = a_tag.find("img")
-            img = img_tag.get("src") if img_tag else ""
-            title = img_tag.get("alt") if img_tag else ""
-            data.append({"title": title.strip(), "img": img.strip(), "url": url.strip()})
+def save_to_sheet(data):
+    # ヘッダーがなければ追加
+    if sheet.cell(1, 1).value != "タイトル":
+        sheet.clear()
+        sheet.insert_row(["タイトル", "画像URL", "URL"], 1)
+    existing_titles = sheet.col_values(1)[1:]  # 2行目以降
 
-    driver.quit()
-    return data
+    next_row = len(existing_titles) + 2
+    for title, img_url, url in data:
+        if title in existing_titles:
+            continue
+        sheet.update(f"A{next_row}:C{next_row}", [[title, img_url, url]])
+        next_row += 1
 
 def main():
     print("🔍 oripaone スクレイピング開始...")
     data = scrape_oripaone()
     print(f"✅ 取得件数: {len(data)} 件")
     save_to_sheet(data)
-    print("✅ スプレッドシート出力完了")
 
 if __name__ == "__main__":
     main()
