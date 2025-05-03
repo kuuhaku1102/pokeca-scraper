@@ -1,8 +1,8 @@
-name: Scrape OripaOne
+name: Scrape Oripaone to Sheets
 
 on:
   schedule:
-    - cron: "0 */3 * * *"  # 3時間ごとに実行
+    - cron: '0 */3 * * *'  # 3時間ごと
   workflow_dispatch:
 
 jobs:
@@ -10,28 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: リポジトリをチェックアウト
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Pythonをセットアップ
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: 依存パッケージをインストール
+      - name: Install dependencies
         run: |
-          pip install selenium webdriver-manager gspread google-auth google-auth-oauthlib beautifulsoup4
+          pip install selenium beautifulsoup4 gspread google-auth google-auth-oauthlib webdriver-manager
 
-      - name: Chromeとドライバをセットアップ
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser
-          echo "CHROME_BIN=/usr/bin/chromium-browser" >> $GITHUB_ENV
-
-      - name: .env環境変数を設定（必要に応じて）
-        run: echo "環境変数は Secrets にて定義されている前提"
-
-      - name: スクレイピングスクリプトを実行
+      - name: Run scraper
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
         run: python scrape_oripaone_to_sheets.py
