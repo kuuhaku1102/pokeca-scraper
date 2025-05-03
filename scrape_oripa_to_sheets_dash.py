@@ -13,7 +13,7 @@ from google.oauth2.service_account import Credentials
 def save_credentials():
     encoded_json = os.environ.get("GSHEET_JSON", "")
     if not encoded_json:
-        raise Exception("❌ GSHEET_JSON が未設定です")
+        raise Exception("❌ GSHEET_JSON が未設定です。base64形式でSecretsに設定してください。")
     with open("credentials.json", "wb") as f:
         f.write(base64.b64decode(encoded_json))
     return "credentials.json"
@@ -23,7 +23,9 @@ def get_sheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     credentials = Credentials.from_service_account_file(creds_file, scopes=scopes)
     client = gspread.authorize(credentials)
-    return client.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit").worksheet("dash")
+    return client.open_by_url(
+        "https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit"
+    ).worksheet("dash")
 
 def scrape_oripa():
     options = Options()
@@ -36,7 +38,7 @@ def scrape_oripa():
     driver.get("https://oripa-dash.com/user/packList")
     time.sleep(2)
 
-    # スクロールで読み込み
+    # ⬇ スクロール読み込み
     last_height = driver.execute_script("return document.body.scrollHeight")
     scroll_attempts = 0
     while True:
@@ -51,6 +53,7 @@ def scrape_oripa():
             scroll_attempts = 0
         last_height = new_height
 
+    # 🔍 HTML抽出
     soup = BeautifulSoup(driver.page_source, "html.parser")
     items = soup.select(".packList__item")
 
@@ -58,7 +61,7 @@ def scrape_oripa():
     for item in items:
         title = item.get("data-pack-name", "No Title").strip()
         pack_id = item.get("data-pack-id", "").strip()
-        url = f"https://oripa-dash.com/user/packDetail/{pack_id}" if pack_id else ""
+        url = f"https://oripa-dash.com/user/itemDetail?id={pack_id}" if pack_id else ""
 
         img_tag = item.select_one("img.packList__item-thumbnail")
         img_url = img_tag.get("src") if img_tag else ""
@@ -73,7 +76,7 @@ def scrape_oripa():
 def save_to_sheet(data, sheet):
     sheet.clear()
     sheet.append_rows(data)
-    print(f"✅ {len(data)-1} 件保存完了")
+    print(f"✅ {len(data)-1} 件のデータを dash シートに保存しました。")
 
 def main():
     data = scrape_oripa()
