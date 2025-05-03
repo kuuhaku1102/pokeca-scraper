@@ -21,7 +21,10 @@ creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
 gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("oripaone")
-sheet.update(values=[["タイトル", "画像URL", "URL"]], range_name="A1")
+
+# 既存の画像URLリストを取得（2行目以降のB列）
+existing_data = sheet.get_all_values()[1:]  # ヘッダーを除外
+existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
 # Chrome options
 options = Options()
@@ -39,7 +42,6 @@ print("🔍 oripaone スクレイピング開始...")
 driver.get("https://oripaone.jp/")
 
 try:
-    # JS描画完了まで最大15秒待機
     WebDriverWait(driver, 15).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, "div.relative.overflow-hidden.rounded.bg-white.shadow"))
     )
@@ -61,10 +63,18 @@ for card in cards:
         title = img_tag.get("alt") or "pack"
         image_url = img_tag.get("src")
         detail_url = "https://oripaone.jp" + a_tag["href"]
+
+        # スキップ判定：既存画像URLと一致していたらスキップ
+        if image_url in existing_image_urls:
+            print(f"⏭ スキップ（重複）: {title}")
+            continue
+
         results.append([title, image_url, detail_url])
 
 driver.quit()
-print(f"✅ 取得件数: {len(results)} 件")
+print(f"✅ 取得件数（新規のみ）: {len(results)} 件")
 
+# 追記
 if results:
-    sheet.update(values=results, range_name="A2")
+    next_row = len(existing_data) + 2  # 1行目がヘッダーなので +2
+    sheet.update(f"A{next_row}", results)
