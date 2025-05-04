@@ -27,3 +27,10 @@ jobs:
 
       - name: Run scrape script
         run: python scrape_dopa_to_sheets.py
+
+      - name: Upload debug HTML if exists
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: debug_dopa
+          path: debug_dopa.html
