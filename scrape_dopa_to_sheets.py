@@ -26,7 +26,7 @@ sheet = spreadsheet.worksheet("dopa")
 expected_header = ["タイトル", "画像URL", "URL"]
 current_header = sheet.row_values(1)
 if current_header != expected_header:
-    sheet.update("A1", [expected_header])
+    sheet.update(range_name="A1", values=[expected_header])  # ⚠️ DeprecationWarning回避
 
 # --- 既存データ取得（重複判定用） ---
 existing_data = sheet.get_all_values()[1:]  # ヘッダーを除く
@@ -48,12 +48,15 @@ print("🔍 dopa-game.jp スクレイピング開始...")
 driver.get("https://dopa-game.jp/")
 
 try:
-    # ガチャ画像が複数読み込まれるまで待機
-    WebDriverWait(driver, 20).until(
-        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) >= 5
+    # ガチャ画像が5件以上読み込まれるまで待機（安定セレクタ使用）
+    WebDriverWait(driver, 30).until(
+        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'img[src*="/uploads/"]')) >= 5
     )
 except Exception as e:
     print("❌ 要素が十分に読み込まれませんでした。", e)
+    # HTMLデバッグ保存（後で確認用）
+    with open("debug_dopa.html", "w", encoding="utf-8") as f:
+        f.write(driver.page_source)
     driver.quit()
     exit()
 
