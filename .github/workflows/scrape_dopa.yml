@@ -1,0 +1,29 @@
+name: Scrape Dopa Gacha Info
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # JST 11:00 毎日実行
+  workflow_dispatch: # 手動実行も可能にする
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    env:
+      GAS_URL: ${{ secrets.GAS_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
+
+      - name: Run Dopa scraper
+        run: python scrape_dopa_to_sheets.py
