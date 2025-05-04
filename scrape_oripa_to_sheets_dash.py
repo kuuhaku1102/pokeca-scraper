@@ -71,7 +71,7 @@ def scrape_oripa(existing_image_urls):
         if img_url in existing_image_urls:
             continue
 
-        result.append([title, img_url, url, "", pt_text])  # D列は空欄（投稿フラグ用）
+        result.append([title, img_url, url, pt_text])  # 4列目にPT
 
     driver.quit()
     return result
@@ -86,7 +86,7 @@ def save_to_sheet(new_data, sheet):
 def main():
     sheet = get_sheet()
     existing_data = sheet.get_all_values()
-    existing_image_urls = [row[1] for row in existing_data[1:] if len(row) > 1]  # B列
+    existing_image_urls = [row[1] for row in existing_data[1:] if len(row) > 1]  # B列 = 画像URL
 
     new_data = scrape_oripa(existing_image_urls)
     save_to_sheet(new_data, sheet)
