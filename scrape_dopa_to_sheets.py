@@ -1,11 +1,7 @@
-import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import base64
 import os
-import time
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -19,70 +15,53 @@ gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("dopa")
 
-# --- 重複チェック用URL取得 ---
+# --- 既存の画像URLリストを取得（B列） ---
 existing_data = sheet.get_all_values()[1:]
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
-# --- Chrome設定（headlessなし） ---
-options = uc.ChromeOptions()
-# options.add_argument("--headless=new") ← Headless はオフに！
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-options.add_argument("--window-size=1280,2000")
-options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-driver = uc.Chrome(options=options, version_main=135)
-
-print("🔍 dopa スクレイピング開始...")
-driver.get("https://dopa-game.jp/")
-
-try:
-    WebDriverWait(driver, 10).until(
-        lambda d: d.execute_script("return document.readyState") == "complete"
-    )
-
-    time.sleep(5)  # Next.js のクライアント描画を待つ
-
-    WebDriverWait(driver, 15).until(
-        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) > 0
-    )
-
-except Exception:
-    print("🛑 描画失敗。HTML冒頭を出力：")
-    print(driver.page_source[:500])
-    driver.quit()
-    exit()
-
-# --- HTMLパースとデータ収集 ---
-soup = BeautifulSoup(driver.page_source, "html.parser")
-cards = soup.select('a[href*="itemDetail"]')
-
 results = []
-for card in cards:
-    img_tag = card.find("img")
-    if not img_tag:
-        continue
 
-    title = img_tag.get("alt", "無題").strip()
-    image_url = img_tag.get("src")
-    detail_url = card["href"]
+# --- Playwright 開始 ---
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    print("🔍 dopa スクレイピング開始...")
+    page.goto("https://dopa-game.jp/", timeout=30000)
+    
+    # img が出るまで最大15秒待機
+    page.wait_for_selector("a[href*='itemDetail'] img", timeout=15000)
 
-    if image_url.startswith("/"):
-        image_url = "https://dopa-game.jp" + image_url
-    if detail_url.startswith("/"):
-        detail_url = "https://dopa-game.jp" + detail_url
+    html = page.content()
+    soup = BeautifulSoup(html, "html.parser")
+    cards = soup.select('a[href*="itemDetail"]')
 
-    if image_url in existing_image_urls:
-        print(f"⏭ スキップ（重複）: {title}")
-        continue
+    for card in cards:
+        img_tag = card.find("img")
+        if not img_tag:
+            continue
 
-    print(f"✅ 取得: {title}")
-    results.append([title, image_url, detail_url])
+        title = img_tag.get("alt", "無題").strip()
+        image_url = img_tag["src"]
+        detail_url = card["href"]
 
-driver.quit()
-print(f"📦 新規取得件数: {len(results)} 件")
+        if image_url.startswith("/"):
+            image_url = "https://dopa-game.jp" + image_url
+        if detail_url.startswith("/"):
+            detail_url = "https://dopa-game.jp" + detail_url
 
-# --- スプレッドシートへ追記 ---
+        if image_url in existing_image_urls:
+            print(f"⏭ スキップ（重複）: {title}")
+            continue
+
+        print(f"✅ 取得: {title}")
+        results.append([title, image_url, detail_url])
+
+    browser.close()
+
+# --- スプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
     sheet.update(f"A{next_row}", results)
+    print(f"📦 {len(results)} 件追記完了")
+else:
+    print("📭 新規データなし")
