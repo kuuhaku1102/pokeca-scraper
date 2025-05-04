@@ -1,4 +1,4 @@
-import undetected_chromedriver.v2 as uc
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -15,15 +15,14 @@ with open("credentials.json", "w") as f:
 scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
 gc = gspread.authorize(creds)
-
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("dopa")
 
-# --- 既存画像URL取得（重複スキップ用） ---
-existing_data = sheet.get_all_values()[1:]  # ヘッダー除く
+# --- 既存の画像URLリスト取得 ---
+existing_data = sheet.get_all_values()[1:]  # ヘッダー除外
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
-# --- undetected Chrome 起動設定 ---
+# --- undetected Chrome 起動 ---
 options = uc.ChromeOptions()
 options.add_argument("--headless=new")
 options.add_argument("--no-sandbox")
@@ -42,7 +41,7 @@ try:
         lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) >= 5
     )
 except Exception as e:
-    print("🛑 要素取得失敗（Cloudflare or JS未描画）")
+    print("🛑 CloudflareまたはJS描画による読み込み失敗")
     print(driver.page_source[:500])
     driver.quit()
     exit()
@@ -58,7 +57,7 @@ for card in cards:
         continue
 
     title = img_tag.get("alt", "無題").strip()
-    image_url = img_tag["src"]
+    image_url = img_tag.get("src")
     detail_url = card["href"]
 
     if image_url.startswith("/"):
@@ -76,7 +75,7 @@ for card in cards:
 driver.quit()
 print(f"📦 新規取得件数: {len(results)} 件")
 
-# --- Google Sheets 追記 ---
+# --- Googleスプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
     sheet.update(f"A{next_row}", results)
