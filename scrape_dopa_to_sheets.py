@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import base64
 import os
+import time
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -18,11 +19,11 @@ gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("dopa")
 
-# --- 既存の画像URLリスト取得（重複除外） ---
-existing_data = sheet.get_all_values()[1:]  # ヘッダーを除く
+# --- 既存の画像URLリスト取得（重複スキップ用） ---
+existing_data = sheet.get_all_values()[1:]  # ヘッダー除外
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
-# --- undetected Chrome 起動（バージョン135指定） ---
+# --- Chrome 起動設定（version_main=135 ← GitHub Actions のChromeと合わせる） ---
 options = uc.ChromeOptions()
 options.add_argument("--headless=new")
 options.add_argument("--no-sandbox")
@@ -36,11 +37,20 @@ driver = uc.Chrome(options=options, version_main=135)
 print("🔍 dopa スクレイピング開始...")
 driver.get("https://dopa-game.jp/")
 
-# --- JS描画 & Cloudflare対策：img読み込みまで待機 ---
 try:
-    WebDriverWait(driver, 30).until(
-        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) >= 5
+    # HTML読み込み完了を待機
+    WebDriverWait(driver, 10).until(
+        lambda d: d.execute_script("return document.readyState") == "complete"
     )
+
+    # クライアントレンダリング待機（Next.js対応）
+    time.sleep(5)
+
+    # ガチャ画像が表示されるまで待機（最大15秒）
+    WebDriverWait(driver, 15).until(
+        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) >= 1
+    )
+
 except Exception:
     print("🛑 CloudflareまたはJS描画の遅延により読み込み失敗")
     print(driver.page_source[:500])
@@ -76,7 +86,7 @@ for card in cards:
 driver.quit()
 print(f"📦 新規取得件数: {len(results)} 件")
 
-# --- Google Sheets に追記 ---
+# --- スプレッドシートに追記 ---
 if results:
-    next_row = len(existing_data) + 2  # ヘッダー + 1
+    next_row = len(existing_data) + 2
     sheet.update(f"A{next_row}", results)
