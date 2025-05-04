@@ -15,13 +15,12 @@ gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("dopa")
 
-# --- 既存データ取得（画像URLで重複排除） ---
+# --- 重複チェック用画像URL取得 ---
 existing_data = sheet.get_all_values()[1:]
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
 results = []
 
-# --- Playwright 起動 ---
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
@@ -29,19 +28,18 @@ with sync_playwright() as p:
     page.goto("https://dopa-game.jp/", timeout=30000)
 
     try:
-        # imgタグの出現を待機（緩和セレクタ）
-        page.wait_for_selector("img", timeout=30000)
+        page.wait_for_selector("div.css-1flrjkp a.css-4g6ai3 img", timeout=30000)
     except Exception:
-        print("🛑 imgタグの読み込みに失敗。")
+        print("🛑 imgタグが読み込まれませんでした。")
         browser.close()
         exit()
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select('a[href*="itemDetail"]')
+    cards = soup.select("div.css-1flrjkp a.css-4g6ai3")
 
     for card in cards:
-        img_tag = card.find("img")
+        img_tag = card.select_one("img")
         if not img_tag:
             continue
 
