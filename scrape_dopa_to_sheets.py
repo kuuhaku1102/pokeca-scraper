@@ -52,12 +52,16 @@ with sync_playwright() as p:
         if detail_url.startswith("/"):
             detail_url = "https://dopa-game.jp" + detail_url
 
+        # ✅ 価格（PT）を取得
+        pt_tag = card.select_one("span.chakra-text.css-19bpybc")
+        pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
+
         if image_url in existing_image_urls:
             print(f"⏭ スキップ（重複）: {title}")
             continue
 
-        print(f"✅ 取得: {title}")
-        results.append([title, image_url, detail_url])
+        print(f"✅ 取得: {title} / {pt_text}PT")
+        results.append([title, image_url, detail_url, pt_text])
 
     browser.close()
 
