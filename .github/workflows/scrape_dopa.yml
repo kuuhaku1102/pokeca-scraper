@@ -1,9 +1,9 @@
-name: Scrape Dopa
+name: Scrape Dopa and Write to Google Sheets
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:     # 手動実行
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 */3 * * *'  # 3時間ごと（JSTなら12時, 15時, 18時…）
 
 jobs:
   scrape:
@@ -19,8 +19,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          pip install undetected-chromedriver gspread google-auth beautifulsoup4
+        run: pip install -r requirements.txt
 
       - name: Run scraper
         env:
