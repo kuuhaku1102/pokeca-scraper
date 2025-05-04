@@ -1,13 +1,13 @@
 name: Scrape Dopa Gacha Info and Write to Google Sheet
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: "0 2 * * *"  # JST 11:00 に毎日実行
-  workflow_dispatch:  # 手動実行も可能に
+    - cron: "0 2 * * *"
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # ← 24.04ではなく latest に戻す
 
     env:
       GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
@@ -21,16 +21,16 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           pip install selenium gspread google-auth beautifulsoup4 webdriver-manager
 
-      - name: Run scrape script
+      - name: Run scraper
         run: python scrape_dopa_to_sheets.py
 
-      - name: Upload debug HTML if exists
+      - name: Upload debug HTML
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@2d16c1e3e9a1c7f6a4d630c8cbbde2dbb23f0c00  # 安定のSHA指定
         with:
           name: debug_dopa
           path: debug_dopa.html
