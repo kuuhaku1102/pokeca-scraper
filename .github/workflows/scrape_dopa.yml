@@ -3,7 +3,7 @@ name: Scrape Dopa with Playwright
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごと実行
+    - cron: '0 */3 * * *'  # 3時間ごとに実行
 
 jobs:
   scrape:
@@ -26,4 +26,4 @@ jobs:
       - name: Run scraper
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-        run: python scrape_dopa_to_sheets.py  # ← ファイル名を修正
+        run: python scrape_dopa_to_sheets.py  # ← 正しいファイル名に修正済み
