@@ -1,10 +1,7 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+import undetected_chromedriver.v2 as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import base64
 import os
@@ -22,39 +19,31 @@ gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("dopa")
 
-# --- 既存データ取得（重複判定用） ---
-existing_data = sheet.get_all_values()[1:]  # ヘッダーを除く
+# --- 既存画像URL取得（重複スキップ用） ---
+existing_data = sheet.get_all_values()[1:]  # ヘッダー除く
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
-# --- Selenium設定 ---
-options = Options()
+# --- undetected Chrome 起動設定 ---
+options = uc.ChromeOptions()
 options.add_argument("--headless=new")
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 options.add_argument("--window-size=1280,2000")
-options.add_argument('--disable-blink-features=AutomationControlled')
 options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+driver = uc.Chrome(options=options)
 
 # --- スクレイピング開始 ---
 print("🔍 dopa スクレイピング開始...")
 driver.get("https://dopa-game.jp/")
 
-# --- ページの読み込み確認とCloudflare検出 ---
 try:
-    WebDriverWait(driver, 20).until(
-        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'img[src*="/uploads/"]')) >= 5
+    WebDriverWait(driver, 30).until(
+        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) >= 5
     )
-except:
-    page_source = driver.page_source
-    if "Checking your browser" in page_source or "Just a moment..." in page_source:
-        print("🛑 CloudflareなどのBot対策にブロックされました。")
-    elif len(page_source.strip()) < 1000:
-        print("🛑 ページ内容が非常に少ない（空ページの可能性）。")
-    else:
-        print("🛑 想定外の読み込み失敗。ページの冒頭を表示：\n")
-        print(page_source[:500])
+except Exception as e:
+    print("🛑 要素取得失敗（Cloudflare or JS未描画）")
+    print(driver.page_source[:500])
     driver.quit()
     exit()
 
@@ -69,7 +58,7 @@ for card in cards:
         continue
 
     title = img_tag.get("alt", "無題").strip()
-    image_url = img_tag.get("src")
+    image_url = img_tag["src"]
     detail_url = card["href"]
 
     if image_url.startswith("/"):
@@ -87,7 +76,7 @@ for card in cards:
 driver.quit()
 print(f"📦 新規取得件数: {len(results)} 件")
 
-# --- スプレッドシートに追記 ---
+# --- Google Sheets 追記 ---
 if results:
-    next_row = len(existing_data) + 2  # ヘッダー行 +1
+    next_row = len(existing_data) + 2
     sheet.update(f"A{next_row}", results)
