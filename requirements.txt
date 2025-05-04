@@ -6,3 +6,7 @@ gspread_dataframe
 oauth2client
 pymysql
 pandas
+undetected-chromedriver==3.5.5
+gspread
+google-auth
+beautifulsoup4
