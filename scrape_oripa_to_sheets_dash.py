@@ -1,13 +1,12 @@
 import time
 import os
 import base64
-import json
+import gspread
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-import gspread
 from google.oauth2.service_account import Credentials
 
 def save_credentials():
@@ -66,10 +65,13 @@ def scrape_oripa(existing_image_urls):
         if img_url.startswith("/"):
             img_url = "https://oripa-dash.com" + img_url
 
-        if img_url in existing_image_urls:
-            continue  # 既にある画像はスキップ
+        pt_tag = item.select_one(".packList__pt-txt")
+        pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
 
-        result.append([title, img_url, url])
+        if img_url in existing_image_urls:
+            continue
+
+        result.append([title, img_url, url, "", pt_text])  # D列は空欄（投稿フラグ用）
 
     driver.quit()
     return result
