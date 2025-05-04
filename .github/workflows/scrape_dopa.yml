@@ -3,14 +3,15 @@ name: Scrape Dopa
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごと
+    - cron: '0 */3 * * *'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -19,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install undetected-chromedriver gspread google-auth beautifulsoup4
 
       - name: Run scraper
         env:
