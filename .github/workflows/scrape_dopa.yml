@@ -1,9 +1,9 @@
 name: Scrape Dopa and Write to Google Sheets
 
 on:
-  workflow_dispatch:     # 手動実行
+  workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごと（JSTなら12時, 15時, 18時…）
+    - cron: '0 */3 * * *'  # 3時間ごと実行
 
 jobs:
   scrape:
@@ -13,13 +13,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          pip install -r requirements.txt
+
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -ac -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
 
       - name: Run scraper
         env:
