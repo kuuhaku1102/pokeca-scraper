@@ -1,9 +1,9 @@
-name: Scrape Dopa to Sheets
+name: Scrape Dopa
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '0 */3 * * *'  # 3時間ごと
-  workflow_dispatch:
 
 jobs:
   scrape:
@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install selenium beautifulsoup4 gspread google-auth google-auth-oauthlib webdriver-manager
+          pip install -r requirements.txt
 
       - name: Run scraper
         env:
