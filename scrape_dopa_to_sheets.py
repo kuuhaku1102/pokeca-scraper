@@ -15,7 +15,7 @@ gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("dopa")
 
-# --- 重複チェック用画像URL取得 ---
+# --- 既存データ取得（画像URLで重複チェック） ---
 existing_data = sheet.get_all_values()[1:]
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
@@ -28,31 +28,33 @@ with sync_playwright() as p:
     page.goto("https://dopa-game.jp/", timeout=30000)
 
     try:
-        page.wait_for_selector("div.css-1flrjkp a.css-4g6ai3 img", timeout=30000)
+        page.wait_for_selector("div.css-1flrjkp", timeout=30000)
     except Exception:
-        print("🛑 imgタグが読み込まれませんでした。")
+        print("🛑 要素が読み込まれませんでした。")
         browser.close()
         exit()
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("div.css-1flrjkp a.css-4g6ai3")
+    cards = soup.select("div.css-1flrjkp")
 
     for card in cards:
-        img_tag = card.select_one("img")
-        if not img_tag:
+        a_tag = card.select_one("a.css-4g6ai3")
+        img_tag = a_tag.select_one("img") if a_tag else None
+
+        if not (a_tag and img_tag):
             continue
 
         title = img_tag.get("alt", "無題").strip()
         image_url = img_tag["src"]
-        detail_url = card["href"]
+        detail_url = a_tag["href"]
 
         if image_url.startswith("/"):
             image_url = "https://dopa-game.jp" + image_url
         if detail_url.startswith("/"):
             detail_url = "https://dopa-game.jp" + detail_url
 
-        # ✅ 価格（PT）を取得
+        # ✅ PT数抽出（150だけ）
         pt_tag = card.select_one("span.chakra-text.css-19bpybc")
         pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
 
