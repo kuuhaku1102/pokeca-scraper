@@ -19,13 +19,13 @@ gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("dopa")
 
-# --- 既存の画像URLリスト取得（重複スキップ用） ---
-existing_data = sheet.get_all_values()[1:]  # ヘッダー除外
+# --- 重複チェック用URL取得 ---
+existing_data = sheet.get_all_values()[1:]
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
-# --- Chrome 起動設定（version_main=135 ← GitHub Actions のChromeと合わせる） ---
+# --- Chrome設定（headlessなし） ---
 options = uc.ChromeOptions()
-options.add_argument("--headless=new")
+# options.add_argument("--headless=new") ← Headless はオフに！
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 options.add_argument("--window-size=1280,2000")
@@ -33,31 +33,27 @@ options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 
 driver = uc.Chrome(options=options, version_main=135)
 
-# --- スクレイピング開始 ---
 print("🔍 dopa スクレイピング開始...")
 driver.get("https://dopa-game.jp/")
 
 try:
-    # HTML読み込み完了を待機
     WebDriverWait(driver, 10).until(
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
 
-    # クライアントレンダリング待機（Next.js対応）
-    time.sleep(5)
+    time.sleep(5)  # Next.js のクライアント描画を待つ
 
-    # ガチャ画像が表示されるまで待機（最大15秒）
     WebDriverWait(driver, 15).until(
-        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) >= 1
+        lambda d: len(d.find_elements(By.CSS_SELECTOR, 'a[href*="itemDetail"] img')) > 0
     )
 
 except Exception:
-    print("🛑 CloudflareまたはJS描画の遅延により読み込み失敗")
+    print("🛑 描画失敗。HTML冒頭を出力：")
     print(driver.page_source[:500])
     driver.quit()
     exit()
 
-# --- HTML取得 & パース ---
+# --- HTMLパースとデータ収集 ---
 soup = BeautifulSoup(driver.page_source, "html.parser")
 cards = soup.select('a[href*="itemDetail"]')
 
@@ -86,7 +82,7 @@ for card in cards:
 driver.quit()
 print(f"📦 新規取得件数: {len(results)} 件")
 
-# --- スプレッドシートに追記 ---
+# --- スプレッドシートへ追記 ---
 if results:
     next_row = len(existing_data) + 2
     sheet.update(f"A{next_row}", results)
