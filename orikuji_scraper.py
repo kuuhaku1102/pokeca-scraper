@@ -33,8 +33,9 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
-        page.wait_for_selector("div.white-box.theme_newarrival", timeout=30000)
-        page.wait_for_timeout(2000)
+        # JavaScriptで要素の存在を確認
+        page.wait_for_function("document.querySelector('img.el-image__inner') !== null", timeout=15000)
+        page.wait_for_timeout(1000)  # 念のため待機
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         page.screenshot(path="error_screenshot.png")
@@ -43,7 +44,8 @@ with sync_playwright() as p:
         browser.close()
         exit()
 
-    html = page.content()
+    # JavaScriptで描画後のHTMLを取得
+    html = page.evaluate("() => document.documentElement.outerHTML")
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select("div.white-box.theme_newarrival")
 
@@ -57,7 +59,7 @@ with sync_playwright() as p:
             try:
                 # 詳細な階層指定でサムネイル画像を取得（コインアイコンではなく）
                 a_tag = card.select_one("a[href]")
-                img_tag = card.select_one("div.image-container div.el-image img.el-image__inner")
+                img_tag = card.select_one("img.el-image__inner") or card.select_one("img[alt][src]")
                 pt_tag = card.select_one("span.coin-area")
 
                 if not (a_tag and img_tag and pt_tag):
