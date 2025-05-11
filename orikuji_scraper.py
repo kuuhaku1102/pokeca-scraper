@@ -21,7 +21,7 @@ spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT
 sheet = spreadsheet.worksheet("その他")
 
 # --- 既存データ取得（画像URLで重複チェック） ---
-existing_data = sheet.get_all_values()[1:]
+existing_data = sheet.get_all_values()[1:]  # ヘッダー行はスキップ
 existing_image_urls = {strip_query(row[1]) for row in existing_data if len(row) > 1}
 
 results = []
@@ -55,8 +55,9 @@ with sync_playwright() as p:
         print(f"📦 {len(cards)} 件のガチャが見つかりました。")
         for card in cards:
             try:
+                # 詳細な階層指定でサムネイル画像を取得（コインアイコンではなく）
                 a_tag = card.select_one("a[href]")
-                img_tag = card.select_one("img[alt][src]")
+                img_tag = card.select_one("div.image-container div.el-image img.el-image__inner")
                 pt_tag = card.select_one("span.coin-area")
 
                 if not (a_tag and img_tag and pt_tag):
@@ -67,9 +68,9 @@ with sync_playwright() as p:
                     })
                     continue
 
-                title = img_tag["alt"].strip()
-                image_url = img_tag["src"]
-                detail_url = a_tag["href"]
+                title = img_tag.get("alt", "無題").strip()
+                image_url = img_tag.get("src", "")
+                detail_url = a_tag.get("href", "")
                 pt_text = pt_tag.get_text(strip=True)
 
                 if image_url.startswith("/"):
