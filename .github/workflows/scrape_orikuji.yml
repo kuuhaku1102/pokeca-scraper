@@ -28,11 +28,4 @@ jobs:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
         run: python orikuji_scraper.py
 
-      - name: Upload debug artifacts
-        if: always()
-        uses: actions/upload-artifact@v2  # ✅ v2に戻す
-        with:
-          name: orikuji_debug
-          path: |
-            page_debug.html
-            debug.png
+   
