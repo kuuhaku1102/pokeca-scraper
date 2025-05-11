@@ -32,7 +32,7 @@ with sync_playwright() as p:
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("div.theme_newarrival")
+    cards = soup.select("div.theme_newarrival div.el-card")
 
     if not cards:
         print("🛑 ガチャ情報が見つかりませんでした。")
@@ -40,36 +40,40 @@ with sync_playwright() as p:
     else:
         print(f"Found {len(cards)} cards")  # デバッグ用に見つかったカード数を出力
         for card in cards:
-            a_tag = card.select_one("a")
-            title_img = card.select_one("img.el-image__inner")
-            price_tag = card.select_one("span.coin-area")
+            try:
+                a_tag = card.select_one("a.el-card")
+                title_img = card.select_one("img.el-image__inner")
+                price_tag = card.select_one("div.coin-area")
 
-            if not all([a_tag, title_img, price_tag]):
-                print("Missing required elements:", {
-                    "a_tag": bool(a_tag),
-                    "title_img": bool(title_img),
-                    "price_tag": bool(price_tag)
-                })  # デバッグ用に不足要素を出力
+                if not all([a_tag, title_img, price_tag]):
+                    print("Missing required elements:", {
+                        "a_tag": bool(a_tag),
+                        "title_img": bool(title_img),
+                        "price_tag": bool(price_tag)
+                    })  # デバッグ用に不足要素を出力
+                    continue
+
+                title = title_img.get("alt", "無題").strip()
+                image_url = title_img.get("src")
+                detail_url = a_tag["href"]
+                point = price_tag.get_text(strip=True)
+
+                if image_url.startswith("/"):
+                    image_url = "https://orikuji.com" + image_url
+                if detail_url.startswith("/"):
+                    detail_url = "https://orikuji.com" + detail_url
+
+                print(f"Processing: {title} / {image_url}")  # デバッグ用に処理中のデータを出力
+
+                if image_url in existing_image_urls:
+                    print(f"⏭ スキップ（重複）: {title}")
+                    continue
+
+                print(f"✅ 取得: {title} / {point}pt")
+                results.append([title, image_url, detail_url, point])
+            except Exception as e:
+                print(f"Error processing card: {str(e)}")
                 continue
-
-            title = title_img.get("alt", "無題").strip()
-            image_url = title_img.get("src")
-            detail_url = a_tag["href"]
-            point = price_tag.get_text(strip=True)
-
-            if image_url.startswith("/"):
-                image_url = "https://orikuji.com" + image_url
-            if detail_url.startswith("/"):
-                detail_url = "https://orikuji.com" + detail_url
-
-            print(f"Processing: {title} / {image_url}")  # デバッグ用に処理中のデータを出力
-
-            if image_url in existing_image_urls:
-                print(f"⏭ スキップ（重複）: {title}")
-                continue
-
-            print(f"✅ 取得: {title} / {point}pt")
-            results.append([title, image_url, detail_url, point])
 
     browser.close()
 
