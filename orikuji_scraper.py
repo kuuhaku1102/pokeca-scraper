@@ -6,7 +6,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 from urllib.parse import urlparse
 
-# --- クエリを除いたURL比較用関数 ---
 def strip_query(url):
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
@@ -34,8 +33,8 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
-        page.wait_for_selector("img.el-image__inner", timeout=30000)  # 確実な描画待機
-        page.wait_for_timeout(2000)  # 念のため2秒待機
+        page.wait_for_selector("div.white-box.theme_newarrival", timeout=30000)
+        page.wait_for_timeout(2000)
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         page.screenshot(path="error_screenshot.png")
@@ -56,8 +55,8 @@ with sync_playwright() as p:
         print(f"📦 {len(cards)} 件のガチャが見つかりました。")
         for card in cards:
             try:
-                a_tag = card.select_one("a")
-                img_tag = card.select_one("img.el-image__inner")
+                a_tag = card.select_one("a[href]")
+                img_tag = card.select_one("img[alt][src]")
                 pt_tag = card.select_one("span.coin-area")
 
                 if not (a_tag and img_tag and pt_tag):
@@ -68,9 +67,9 @@ with sync_playwright() as p:
                     })
                     continue
 
-                title = img_tag.get("alt", "無題").strip()
-                image_url = img_tag.get("src", "")
-                detail_url = a_tag.get("href", "")
+                title = img_tag["alt"].strip()
+                image_url = img_tag["src"]
+                detail_url = a_tag["href"]
                 pt_text = pt_tag.get_text(strip=True)
 
                 if image_url.startswith("/"):
