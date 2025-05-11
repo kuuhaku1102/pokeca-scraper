@@ -22,17 +22,28 @@ existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 results = []
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_page()
+    browser = p.chromium.launch(
+        headless=True,
+        args=['--no-sandbox', '--disable-setuid-sandbox']
+    )
+    context = browser.new_context(
+        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    )
+    page = context.new_page()
     print("🔍 pokeca スクレイピング開始...")
 
     try:
-        # タイムアウトを60秒に延長し、load完了を待つように変更
-        page.goto("https://pokeca.com/", timeout=60000, wait_until="load")
+        # wait_until を domcontentloaded に変更
+        page.goto("https://pokeca.com/", timeout=60000, wait_until="domcontentloaded")
         # ページが完全に読み込まれるまで少し待機
         page.wait_for_load_state("networkidle", timeout=60000)
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
+        # エラー時にスクリーンショットとHTMLを保存
+        page.screenshot(path="error_screenshot.png")
+        html = page.content()
+        with open("error_page.html", "w", encoding="utf-8") as f:
+            f.write(html)
         browser.close()
         exit()
 
@@ -45,6 +56,11 @@ with sync_playwright() as p:
         page.wait_for_selector("div.original-packs-card", timeout=10000)
     except Exception:
         print("🛑 要素が読み込まれませんでした。")
+        # エラー時にスクリーンショットとHTMLを保存
+        page.screenshot(path="error_screenshot.png")
+        html = page.content()
+        with open("error_page.html", "w", encoding="utf-8") as f:
+            f.write(html)
         browser.close()
         exit()
 
