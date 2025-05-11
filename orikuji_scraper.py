@@ -59,7 +59,10 @@ with sync_playwright() as p:
             try:
                 # 詳細な階層指定でサムネイル画像を取得（コインアイコンではなく）
                 a_tag = card.select_one("a[href]")
-                img_tag = card.select_one("img.el-image__inner") or card.select_one("img[alt][src]")
+                img_tag = next(
+                    (img for img in card.select("img") if "media.orikuji.com/gacha/" in img.get("src", "")),
+                    None
+                )
                 pt_tag = card.select_one("span.coin-area")
 
                 if not (a_tag and img_tag and pt_tag):
