@@ -32,7 +32,15 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
-        page.wait_for_function("document.querySelectorAll('img.el-image__inner').length > 0", timeout=20000)
+        
+        # 画像が正しく描画されるまで強制待機（src に /gacha/ を含むimg + alt属性あり）
+        page.wait_for_function("""
+          () => {
+            const imgs = Array.from(document.querySelectorAll("img"));
+            return imgs.some(img => img.src.includes("/gacha/") && img.alt);
+          }
+        """, timeout=20000)
+        
         page.wait_for_timeout(1000)
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
