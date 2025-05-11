@@ -3,7 +3,7 @@ name: Scrape Pokecross with Playwright
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごとに実行
+    - cron: '0 */3 * * *'
 
 jobs:
   scrape:
@@ -30,7 +30,7 @@ jobs:
 
       - name: Upload page debug HTML
         if: always()
-        uses: actions/upload-artifact@v2  # ✅ v2に修正
+        uses: actions/upload-artifact@4a29187c3e50920ea2b6589be5a55d7a6d6f9d5a  # 固定SHA
         with:
           name: page_debug
           path: page_debug.html
