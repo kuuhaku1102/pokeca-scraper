@@ -33,13 +33,18 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
+
+        # LazyLoad対策でスクロール
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(2000)
+
+        # ガチャ画像が表示されるまで待機
         page.wait_for_function("""
           () => {
             const imgs = Array.from(document.querySelectorAll("img"));
-            return imgs.some(img => img.src.includes("/gacha/") && img.alt);
+            return imgs.some(img => (img.getAttribute('src') || img.getAttribute('data-src'))?.includes("/gacha/"));
           }
         """, timeout=20000)
-        page.wait_for_timeout(1000)
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         page.screenshot(path="debug.png")
@@ -47,20 +52,22 @@ with sync_playwright() as p:
         browser.close()
         exit()
 
-    # HTMLとスクリーンショット保存
     html = page.content()
     page.screenshot(path="debug.png", full_page=True)
 
-    # JavaScriptからガチャ情報を抽出
+    # --- JavaScriptで情報抽出 ---
     items = page.evaluate("""
     () => {
         return Array.from(document.querySelectorAll("div.white-box.theme_newarrival")).map(card => {
             const img = card.querySelector('img.el-image__inner');
             const a = card.querySelector('a[href]');
             const pt = card.querySelector('span.coin-area');
+
+            const imageUrl = img?.getAttribute('src') || img?.getAttribute('data-src') || img?.getAttribute('data-original');
+
             return {
                 title: img?.alt || null,
-                image: img?.src || null,
+                image: imageUrl,
                 url: a?.href || null,
                 point: pt?.innerText || null
             };
@@ -80,9 +87,11 @@ with sync_playwright() as p:
             detail_url = item["url"]
             pt_text = item["point"].strip() if item["point"] else ""
 
+            if not image_url or image_url.startswith("data:image/"):
+                continue
             if image_url.startswith("/"):
                 image_url = "https://orikuji.com" + image_url
-            if detail_url.startswith("/"):
+            if detail_url and detail_url.startswith("/"):
                 detail_url = "https://orikuji.com" + detail_url
 
             norm_url = strip_query(image_url)
@@ -105,15 +114,10 @@ else:
     print("📭 新規データなし")
     print(f"🔎 登録済みURL数: {len(existing_image_urls)}")
 
-# --- base64でHTMLをログ出力 ---
+# --- デバッグHTML保存（任意） ---
 if html:
     try:
         with open("page_debug.html", "w", encoding="utf-8") as f:
             f.write(html)
-        with open("page_debug.html", "rb") as f:
-            encoded = base64.b64encode(f.read()).decode("utf-8")
-            print("==== PAGE DEBUG BASE64 START ====")
-            print(encoded)
-            print("==== PAGE DEBUG BASE64 END ====")
     except Exception as e:
         print(f"❌ デバッグHTML保存失敗: {str(e)}")
