@@ -1,5 +1,4 @@
 from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
 import base64
 import os
 import gspread
@@ -20,65 +19,54 @@ gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
 sheet = spreadsheet.worksheet("その他")
 
+# --- 既存データ取得（画像URLで重複チェック） ---
 existing_data = sheet.get_all_values()[1:]
 existing_image_urls = {strip_query(row[1]) for row in existing_data if len(row) > 1}
 
 results = []
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
     page = browser.new_page()
     print("🔍 orikuji スクレイピング開始...")
 
     try:
         page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
-        
-        # 画像が正しく描画されるまで強制待機（src に /gacha/ を含むimg + alt属性あり）
-        page.wait_for_function("""
-          () => {
-            const imgs = Array.from(document.querySelectorAll("img"));
-            return imgs.some(img => img.src.includes("/gacha/") && img.alt);
-          }
-        """, timeout=20000)
-        
-        page.wait_for_timeout(1000)
+        page.wait_for_timeout(3000)  # 念のため待機
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         browser.close()
         exit()
 
-    html = page.content()
-    soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("div.white-box.theme_newarrival")
+    # JavaScriptで描画されたDOMから直接情報を抜き出す
+    items = page.evaluate("""
+    () => {
+        return Array.from(document.querySelectorAll("div.white-box.theme_newarrival")).map(card => {
+            const img = card.querySelector('img.el-image__inner');
+            const a = card.querySelector('a[href]');
+            const pt = card.querySelector('span.coin-area');
+            return {
+                title: img?.alt || null,
+                image: img?.src || null,
+                url: a?.href || null,
+                point: pt?.innerText || null
+            };
+        }).filter(item => item.image && item.image.includes("/gacha/"));
+    }
+    """)
 
-    if not cards:
-        print("🛑 ガチャ情報が見つかりませんでした。")
+    browser.close()
+
+    if not items:
+        print("📭 ガチャ情報が取得できませんでした。")
     else:
-        print(f"📦 {len(cards)} 件のガチャが見つかりました。")
-        for card in cards:
-            print("🧪 img candidates:")
-            for img in card.select("img"):
-                print("-", img.get("src"))
+        print(f"📦 {len(items)} 件のガチャを取得")
 
-            a_tag = card.select_one("a[href]")
-            pt_tag = card.select_one("span.coin-area")
-            img_tag = next(
-                (img for img in card.select("img") if "/gacha/" in img.get("src", "") and img.get("alt")),
-                None
-            )
-
-            if not (a_tag and img_tag and pt_tag):
-                print("⚠️ 要素不足: ", {
-                    "a_tag": bool(a_tag),
-                    "img_tag": bool(img_tag),
-                    "pt_tag": bool(pt_tag)
-                })
-                continue
-
-            title = img_tag["alt"].strip()
-            image_url = img_tag["src"]
-            detail_url = a_tag["href"]
-            pt_text = pt_tag.get_text(strip=True)
+        for item in items:
+            title = item["title"].strip()
+            image_url = item["image"]
+            detail_url = item["url"]
+            pt_text = item["point"].strip() if item["point"] else ""
 
             if image_url.startswith("/"):
                 image_url = "https://orikuji.com" + image_url
@@ -86,15 +74,12 @@ with sync_playwright() as p:
                 detail_url = "https://orikuji.com" + detail_url
 
             norm_url = strip_query(image_url)
-
             if norm_url in existing_image_urls:
                 print(f"⏭ スキップ（重複）: {title}")
                 continue
 
             print(f"✅ 取得: {title} / {pt_text}pt")
             results.append([title, image_url, detail_url, pt_text])
-
-    browser.close()
 
 # --- スプレッドシートに追記 ---
 if results:
