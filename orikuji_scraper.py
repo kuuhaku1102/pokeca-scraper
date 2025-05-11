@@ -106,3 +106,16 @@ if results:
 else:
     print("📭 新規データなし")
     print(f"🔎 登録済みURL数: {len(existing_image_urls)}")
+
+import base64
+
+try:
+    with open("page_debug.html", "w", encoding="utf-8") as f:
+        f.write(html)
+    with open("page_debug.html", "rb") as f:
+        encoded = base64.b64encode(f.read()).decode("utf-8")
+        print("==== PAGE DEBUG BASE64 START ====")
+        print(encoded)
+        print("==== PAGE DEBUG BASE64 END ====")
+except Exception as e:
+    print(f"❌ デバッグHTML保存失敗: {str(e)}")
