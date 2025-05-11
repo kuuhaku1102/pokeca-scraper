@@ -58,12 +58,22 @@ with sync_playwright() as p:
         pt_tag = card.select_one("span.chakra-text.css-19bpybc")
         pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
 
+        # 当たりカード画像をすべて取得
+        atari_imgs = []
+        for atari_div in card.select('div.chakra-aspect-ratio.css-839f3u'):
+            img = atari_div.find('img')
+            if img and img.get('src'):
+                atari_imgs.append(img['src'])
+
+        # 画像URLをカンマ区切りで保存
+        atari_imgs_str = ','.join(atari_imgs)
+
         if image_url in existing_image_urls:
             print(f"⏭ スキップ（重複）: {title}")
             continue
 
         print(f"✅ 取得: {title} / {pt_text}PT")
-        results.append([title, image_url, detail_url, pt_text])
+        results.append([title, image_url, detail_url, pt_text, atari_imgs_str])
 
     browser.close()
 
