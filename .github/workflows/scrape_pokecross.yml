@@ -27,3 +27,10 @@ jobs:
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
         run: python pokecross.py
+
+      - name: Upload page debug HTML
+        if: always()  # スクレイピングに失敗しても保存
+        uses: actions/upload-artifact@v3
+        with:
+          name: page_debug
+          path: page_debug.html
