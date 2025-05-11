@@ -13,7 +13,7 @@ scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapi
 creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
 gc = gspread.authorize(creds)
 spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
-sheet = spreadsheet.worksheet("その他")  # 「その他」シート
+sheet = spreadsheet.worksheet("その他")
 
 # --- 既存データ取得（画像URLで重複チェック） ---
 existing_data = sheet.get_all_values()[1:]
@@ -25,16 +25,21 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     print("🔍 pokeca スクレイピング開始...")
-    page.goto("https://pokeca.com/", timeout=30000)
+
+    page.goto("https://pokeca.com/", timeout=30000, wait_until="networkidle")
+
+    # デバッグ用HTML保存
+    html = page.content()
+    with open("page_debug.html", "w", encoding="utf-8") as f:
+        f.write(html)
 
     try:
-        page.wait_for_selector("div.original-packs-card", timeout=30000)
+        page.wait_for_selector("div.original-packs-card", timeout=10000)
     except Exception:
         print("🛑 要素が読み込まれませんでした。")
         browser.close()
         exit()
 
-    html = page.content()
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select("div.original-packs-card")
 
@@ -49,7 +54,7 @@ with sync_playwright() as p:
         title = img_tag.get("alt", "無題").strip()
         image_url = img_tag["src"]
         detail_url = a_tag["href"]
-        pt_text = pt_tag.get_text(strip=True).replace("/1回", "")
+        pt_text = pt_tag.get_text(strip=True).replace("/1回", "").strip()
 
         if image_url.startswith("/"):
             image_url = "https://pokeca.com" + image_url
