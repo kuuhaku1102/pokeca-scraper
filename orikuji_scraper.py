@@ -16,7 +16,7 @@ spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT
 sheet = spreadsheet.worksheet("その他")
 
 # --- 既存データ取得（画像URLで重複チェック） ---
-existing_data = sheet.get_all_values()[1:]
+existing_data = sheet.get_all_values()[1:]  # ヘッダー行をスキップ
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
 results = []
@@ -26,6 +26,9 @@ with sync_playwright() as p:
     page = browser.new_page()
     print("🔍 orikuji スクレイピング開始...")
     page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
+    
+    # ページが完全に読み込まれるまで待機
+    page.wait_for_selector("div.theme_newarrival", timeout=30000)
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
@@ -33,13 +36,20 @@ with sync_playwright() as p:
 
     if not cards:
         print("🛑 ガチャ情報が見つかりませんでした。")
+        print(f"HTML content: {html[:500]}...")  # デバッグ用にHTML内容を出力
     else:
+        print(f"Found {len(cards)} cards")  # デバッグ用に見つかったカード数を出力
         for card in cards:
             a_tag = card.select_one("a")
             title_img = card.select_one("img.el-image__inner")
             price_tag = card.select_one("span.coin-area")
 
-            if not (a_tag and title_img and price_tag):
+            if not all([a_tag, title_img, price_tag]):
+                print("Missing required elements:", {
+                    "a_tag": bool(a_tag),
+                    "title_img": bool(title_img),
+                    "price_tag": bool(price_tag)
+                })  # デバッグ用に不足要素を出力
                 continue
 
             title = title_img.get("alt", "無題").strip()
@@ -51,6 +61,8 @@ with sync_playwright() as p:
                 image_url = "https://orikuji.com" + image_url
             if detail_url.startswith("/"):
                 detail_url = "https://orikuji.com" + detail_url
+
+            print(f"Processing: {title} / {image_url}")  # デバッグ用に処理中のデータを出力
 
             if image_url in existing_image_urls:
                 print(f"⏭ スキップ（重複）: {title}")
@@ -72,3 +84,4 @@ if results:
         print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
 else:
     print("📭 新規データなし")
+    print(f"Existing URLs count: {len(existing_image_urls)}")  # デバッグ用に既存URL数を出力
