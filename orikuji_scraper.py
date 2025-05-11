@@ -33,9 +33,10 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
-        # JavaScriptで要素の存在を確認
-        page.wait_for_function("document.querySelector('img.el-image__inner') !== null", timeout=15000)
-        page.wait_for_timeout(1000)  # 念のため待機
+        # 確実に画像が描画されるまで待つ
+        page.wait_for_function("document.querySelectorAll('img.el-image__inner').length > 0", timeout=20000)
+        # 念のため1秒待機
+        page.wait_for_timeout(1000)
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         page.screenshot(path="error_screenshot.png")
@@ -62,10 +63,7 @@ with sync_playwright() as p:
             try:
                 # 詳細な階層指定でサムネイル画像を取得（コインアイコンではなく）
                 a_tag = card.select_one("a[href]")
-                img_tag = next(
-                    (img for img in card.select("img") if "media.orikuji.com/gacha/" in img.get("src", "")),
-                    None
-                )
+                img_tag = card.select_one("img.el-image__inner") or card.select_one("img[alt][src]")
                 pt_tag = card.select_one("span.coin-area")
 
                 if not (a_tag and img_tag and pt_tag):
