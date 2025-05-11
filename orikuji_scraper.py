@@ -24,6 +24,7 @@ existing_data = sheet.get_all_values()[1:]
 existing_image_urls = {strip_query(row[1]) for row in existing_data if len(row) > 1}
 
 results = []
+html = ""
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -42,12 +43,15 @@ with sync_playwright() as p:
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         page.screenshot(path="debug.png")
-        with open("page_debug.html", "w", encoding="utf-8") as f:
-            f.write(page.content())
+        html = page.content()
         browser.close()
         exit()
 
-    # DOMから必要データを抽出
+    # HTMLとスクリーンショット保存
+    html = page.content()
+    page.screenshot(path="debug.png", full_page=True)
+
+    # JavaScriptからガチャ情報を抽出
     items = page.evaluate("""
     () => {
         return Array.from(document.querySelectorAll("div.white-box.theme_newarrival")).map(card => {
@@ -64,18 +68,12 @@ with sync_playwright() as p:
     }
     """)
 
-    # スクリーンショットとHTML保存（ログ追跡用）
-    page.screenshot(path="debug.png", full_page=True)
-    with open("page_debug.html", "w", encoding="utf-8") as f:
-        f.write(page.content())
-
     browser.close()
 
     if not items:
         print("📭 ガチャ情報が取得できませんでした。")
     else:
         print(f"📦 {len(items)} 件のガチャを取得")
-
         for item in items:
             title = item["title"].strip()
             image_url = item["image"]
@@ -107,15 +105,15 @@ else:
     print("📭 新規データなし")
     print(f"🔎 登録済みURL数: {len(existing_image_urls)}")
 
-import base64
-
-try:
-    with open("page_debug.html", "w", encoding="utf-8") as f:
-        f.write(html)
-    with open("page_debug.html", "rb") as f:
-        encoded = base64.b64encode(f.read()).decode("utf-8")
-        print("==== PAGE DEBUG BASE64 START ====")
-        print(encoded)
-        print("==== PAGE DEBUG BASE64 END ====")
-except Exception as e:
-    print(f"❌ デバッグHTML保存失敗: {str(e)}")
+# --- base64でHTMLをログ出力 ---
+if html:
+    try:
+        with open("page_debug.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        with open("page_debug.html", "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("utf-8")
+            print("==== PAGE DEBUG BASE64 START ====")
+            print(encoded)
+            print("==== PAGE DEBUG BASE64 END ====")
+    except Exception as e:
+        print(f"❌ デバッグHTML保存失敗: {str(e)}")
