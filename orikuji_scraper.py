@@ -32,13 +32,22 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://orikuji.com/", timeout=60000, wait_until="networkidle")
-        page.wait_for_timeout(3000)  # 念のため待機
+        page.wait_for_function("""
+          () => {
+            const imgs = Array.from(document.querySelectorAll("img"));
+            return imgs.some(img => img.src.includes("/gacha/") && img.alt);
+          }
+        """, timeout=20000)
+        page.wait_for_timeout(1000)
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
+        page.screenshot(path="debug.png")
+        with open("page_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
         browser.close()
         exit()
 
-    # JavaScriptで描画されたDOMから直接情報を抜き出す
+    # DOMから必要データを抽出
     items = page.evaluate("""
     () => {
         return Array.from(document.querySelectorAll("div.white-box.theme_newarrival")).map(card => {
@@ -54,6 +63,11 @@ with sync_playwright() as p:
         }).filter(item => item.image && item.image.includes("/gacha/"));
     }
     """)
+
+    # スクリーンショットとHTML保存（ログ追跡用）
+    page.screenshot(path="debug.png", full_page=True)
+    with open("page_debug.html", "w", encoding="utf-8") as f:
+        f.write(page.content())
 
     browser.close()
 
