@@ -56,6 +56,9 @@ with sync_playwright() as p:
     else:
         print(f"📦 {len(cards)} 件のガチャが見つかりました。")
         for card in cards:
+            print("🧪 img candidates:")
+            for img in card.select("img"):
+                print("-", img.get("src"))
             try:
                 # 詳細な階層指定でサムネイル画像を取得（コインアイコンではなく）
                 a_tag = card.select_one("a[href]")
