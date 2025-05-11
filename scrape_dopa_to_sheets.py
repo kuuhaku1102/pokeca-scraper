@@ -25,10 +25,10 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     print("🔍 dopa スクレイピング開始...")
-    page.goto("https://dopa-game.jp/", timeout=30000)
+    page.goto("https://dopa-game.jp/", timeout=60000)
 
     try:
-        page.wait_for_selector("div.css-1flrjkp", timeout=30000)
+        page.wait_for_selector("div.css-1flrjkp", timeout=60000)
     except Exception:
         print("🛑 要素が読み込まれませんでした。")
         browser.close()
