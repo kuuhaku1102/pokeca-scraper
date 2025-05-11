@@ -3,11 +3,11 @@ name: Scrape Orikuji with Playwright
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごとに実行
+    - cron: '0 */3 * * *'
 
 jobs:
   scrape:
-    runs-on: ubuntu-22.04  # ✅ ここを変更
+    runs-on: ubuntu-latest  # または ubuntu-22.04 でもOK
 
     steps:
       - name: Checkout code
@@ -30,7 +30,7 @@ jobs:
 
       - name: Upload debug artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2  # ✅ v2に戻す
         with:
           name: orikuji_debug
           path: |
