@@ -29,8 +29,8 @@ jobs:
         run: python pokecross.py
 
       - name: Upload page debug HTML
-        if: always()  # スクレイピングに失敗しても保存
-        uses: actions/upload-artifact@v3
+        if: always()
+        uses: actions/upload-artifact@v2  # ✅ v2に修正
         with:
           name: page_debug
           path: page_debug.html
