@@ -30,7 +30,7 @@ jobs:
 
       - name: Upload debug artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@7f6cfc3f6b61a7cf1189872ae32db3a0c5089ef2  # ← SHA固定（v3.1.0）
         with:
           name: orikuji_debug
           path: |
