@@ -32,61 +32,74 @@ with sync_playwright() as p:
     page = context.new_page()
     print("🔍 pokeca スクレイピング開始...")
 
-    try:
-        page.goto("https://pokeca.com/", timeout=60000, wait_until="domcontentloaded")
-        page.wait_for_load_state("networkidle", timeout=60000)
-    except Exception as e:
-        print(f"🛑 ページ読み込みエラー: {str(e)}")
-        page.screenshot(path="error_screenshot.png")
+    page_num = 1
+    while True:
+        try:
+            url = f"https://pokeca.com/?page={page_num}"
+            page.goto(url, timeout=60000, wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle", timeout=60000)
+        except Exception as e:
+            print(f"🛑 ページ読み込みエラー: {str(e)}")
+            page.screenshot(path=f"error_screenshot_page{page_num}.png")
+            html = page.content()
+            with open(f"error_page_{page_num}.html", "w", encoding="utf-8") as f:
+                f.write(html)
+            break
+
+        # デバッグ用HTML保存
         html = page.content()
-        with open("error_page.html", "w", encoding="utf-8") as f:
+        with open(f"page_debug_{page_num}.html", "w", encoding="utf-8") as f:
             f.write(html)
-        browser.close()
-        exit()
 
-    # デバッグ用HTML保存
-    html = page.content()
-    with open("page_debug.html", "w", encoding="utf-8") as f:
-        f.write(html)
+        try:
+            page.wait_for_selector("div.original-packs-card", timeout=10000)
+        except Exception:
+            print(f"🛑 ページ {page_num} で要素が読み込まれませんでした。")
+            page.screenshot(path=f"error_screenshot_page{page_num}.png")
+            html = page.content()
+            with open(f"error_page_{page_num}.html", "w", encoding="utf-8") as f:
+                f.write(html)
+            break
 
-    try:
-        page.wait_for_selector("div.original-packs-card", timeout=10000)
-    except Exception:
-        print("🛑 要素が読み込まれませんでした。")
-        page.screenshot(path="error_screenshot.png")
-        html = page.content()
-        with open("error_page.html", "w", encoding="utf-8") as f:
-            f.write(html)
-        browser.close()
-        exit()
+        soup = BeautifulSoup(html, "html.parser")
+        cards = soup.select("div.original-packs-card")
+        
+        # SOLDOUTの確認
+        if soup.select_one("div.soldout"):
+            print("🏁 SOLDOUTが検出されました。スクレイピングを終了します。")
+            break
+            
+        if not cards:  # カードが見つからない場合は終了
+            print(f"🏁 ページ {page_num} でカードが見つかりませんでした。スクレイピングを終了します。")
+            break
 
-    soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("div.original-packs-card")
+        for card in cards:
+            a_tag = card.select_one("a.link-underline")
+            img_tag = card.select_one("img.card-img-top")
+            pt_tag = card.select_one("p.point-amount")
 
-    for card in cards:
-        a_tag = card.select_one("a.link-underline")
-        img_tag = card.select_one("img.card-img-top")
-        pt_tag = card.select_one("p.point-amount")
+            if not (a_tag and img_tag and pt_tag):
+                continue
 
-        if not (a_tag and img_tag and pt_tag):
-            continue
+            title = img_tag.get("alt", "無題").strip()
+            image_url = img_tag["src"]
+            detail_url = a_tag["href"]
+            pt_text = pt_tag.get_text(strip=True).replace("/1回", "").strip()
 
-        title = img_tag.get("alt", "無題").strip()
-        image_url = img_tag["src"]
-        detail_url = a_tag["href"]
-        pt_text = pt_tag.get_text(strip=True).replace("/1回", "").strip()
+            if image_url.startswith("/"):
+                image_url = "https://pokeca.com" + image_url
+            if detail_url.startswith("/"):
+                detail_url = "https://pokeca.com" + detail_url
 
-        if image_url.startswith("/"):
-            image_url = "https://pokeca.com" + image_url
-        if detail_url.startswith("/"):
-            detail_url = "https://pokeca.com" + detail_url
+            if image_url in existing_image_urls:
+                print(f"⏭ スキップ（重複）: {title}")
+                continue
 
-        if image_url in existing_image_urls:
-            print(f"⏭ スキップ（重複）: {title}")
-            continue
+            print(f"✅ 取得: {title} / {pt_text}")
+            results.append([title, image_url, detail_url, pt_text])
 
-        print(f"✅ 取得: {title} / {pt_text}")
-        results.append([title, image_url, detail_url, pt_text])
+        print(f"📄 ページ {page_num} 完了")
+        page_num += 1
 
     browser.close()
 
