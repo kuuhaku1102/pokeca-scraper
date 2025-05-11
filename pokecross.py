@@ -26,7 +26,15 @@ with sync_playwright() as p:
     page = browser.new_page()
     print("🔍 pokeca スクレイピング開始...")
 
-    page.goto("https://pokeca.com/", timeout=30000, wait_until="networkidle")
+    try:
+        # タイムアウトを60秒に延長し、load完了を待つように変更
+        page.goto("https://pokeca.com/", timeout=60000, wait_until="load")
+        # ページが完全に読み込まれるまで少し待機
+        page.wait_for_load_state("networkidle", timeout=60000)
+    except Exception as e:
+        print(f"🛑 ページ読み込みエラー: {str(e)}")
+        browser.close()
+        exit()
 
     # デバッグ用HTML保存
     html = page.content()
