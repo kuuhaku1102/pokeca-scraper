@@ -16,7 +16,7 @@ spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT
 sheet = spreadsheet.worksheet("その他")
 
 # --- 既存データ取得（画像URLで重複チェック） ---
-existing_data = sheet.get_all_values()[1:]
+existing_data = sheet.get_all_values()[1:]  # 1行目はヘッダーと仮定
 existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 
 results = []
@@ -33,13 +33,10 @@ with sync_playwright() as p:
     print("🔍 pokeca スクレイピング開始...")
 
     try:
-        # wait_until を domcontentloaded に変更
         page.goto("https://pokeca.com/", timeout=60000, wait_until="domcontentloaded")
-        # ページが完全に読み込まれるまで少し待機
         page.wait_for_load_state("networkidle", timeout=60000)
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
-        # エラー時にスクリーンショットとHTMLを保存
         page.screenshot(path="error_screenshot.png")
         html = page.content()
         with open("error_page.html", "w", encoding="utf-8") as f:
@@ -56,7 +53,6 @@ with sync_playwright() as p:
         page.wait_for_selector("div.original-packs-card", timeout=10000)
     except Exception:
         print("🛑 要素が読み込まれませんでした。")
-        # エラー時にスクリーンショットとHTMLを保存
         page.screenshot(path="error_screenshot.png")
         html = page.content()
         with open("error_page.html", "w", encoding="utf-8") as f:
@@ -97,7 +93,11 @@ with sync_playwright() as p:
 # --- スプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
-    sheet.update(f"A{next_row}", results)
-    print(f"📦 {len(results)} 件追記完了")
+    range_string = f"A{next_row}:D{next_row + len(results) - 1}"
+    try:
+        sheet.update(range_string, results)
+        print(f"📦 {len(results)} 件追記完了")
+    except Exception as e:
+        print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
 else:
     print("📭 新規データなし")
