@@ -68,7 +68,7 @@ with sync_playwright() as p:
     else:
         print(f"📦 {len(items)} 件の画像を取得")
         for item in items:
-            title = item["title"].strip()
+            title = item["title"].strip() if item["title"].strip() else "noname"
             image_url = item["image"]
             detail_url = item["url"]
 
