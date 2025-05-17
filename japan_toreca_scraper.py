@@ -10,7 +10,7 @@ from playwright.sync_api import sync_playwright
 # ====== 設定値 ======
 BASE_URL = "https://japan-toreca.com/"
 SHEET_NAME = "その他"
-SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")  # ← グローバルで取得
+SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")  # グローバルで取得
 
 def save_credentials() -> str:
     """GSHEET_JSONをデコードして認証ファイルとして保存"""
@@ -50,10 +50,13 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
     html = ""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        # ここでUser-Agent指定
+        context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        page = context.new_page()
         print("🔍 japan-toreca スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            # タイムアウトを2分(120000ms)、wait_untilをdomcontentloadedに
+            page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
             page.wait_for_selector("img", timeout=60000)
         except Exception as e:
             print(f"🛑 ページ読み込み失敗: {e}")
