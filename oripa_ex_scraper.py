@@ -1,6 +1,5 @@
 import os
 import base64
-import time
 from typing import List
 from urllib.parse import urljoin
 
@@ -35,7 +34,6 @@ def fetch_items_playwright() -> List[List[str]]:
         print("🔍 JSレンダリング後のページにアクセス...")
         page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
         page.wait_for_selector("div.group.relative.cursor-pointer.rounded", timeout=10000)
-        # JSで必要情報を抽出
         items = page.evaluate(
             """
             () => {
@@ -45,10 +43,23 @@ def fetch_items_playwright() -> List[List[str]]:
                     const title = img ? (img.getAttribute('alt') || '').trim() : '';
                     const safe_title = title ? title : 'noname';
                     const image = img ? img.getAttribute('src') : '';
+
+                    // 詳細ページURL自動生成
+                    let detail_url = '';
+                    if (img) {
+                        const src = img.getAttribute('src') || '';
+                        const m = src.match(/original-pack\/(\d+)\//);
+                        if (m) {
+                            detail_url = `https://oripa.ex-toreca.com/pack/${m[1]}`;
+                        }
+                    }
+
+                    // pt抽出
                     let pt = '';
                     const ptEl = box.querySelector('p span');
                     if (ptEl) pt = ptEl.textContent.trim();
-                    results.push([safe_title, image, pt]);
+
+                    results.push([safe_title, image, detail_url, pt]);
                 });
                 return results;
             }
