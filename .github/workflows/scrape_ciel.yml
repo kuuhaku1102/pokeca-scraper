@@ -1,5 +1,4 @@
 name: Scrape Ciel with Playwright
- main
 
 on:
   workflow_dispatch:
@@ -24,11 +23,14 @@ jobs:
           pip install -r requirements.txt
           python -m playwright install
 
- main
+      - name: Run Ciel scraper
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
         run: python ciel_scraper.py
 
       - name: Upload page debug HTML
- main
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ciel_page_debug
           path: ciel_page_debug.html
