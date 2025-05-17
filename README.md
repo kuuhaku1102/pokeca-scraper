@@ -42,3 +42,17 @@ python oripa_ex_scraper.py
 ```
 
 This scraper is executed automatically via the `.github/workflows/scrape_oripa_ex.yml` workflow.
+
+## Dokkan Toreca Scraper
+
+The `dokkan_scraper.py` script collects gacha details from [dokkan-toreca.com](https://dokkan-toreca.com/). It uses Playwright to scrape the top page and appends new rows to the `その他` sheet with the title, banner image URL, detail page URL and PT value. Existing URLs are skipped to avoid duplicates.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+python dokkan_scraper.py
+```
+
+The workflow `.github/workflows/scrape_dokkan.yml` runs this scraper weekly.
