@@ -34,12 +34,83 @@ with sync_playwright() as p:
             f.write(page.content())
         browser.close()
         exit()
+    page = browser.new_page(
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    )
+    context = browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0 Safari/537.36"
+        ),
+    )
+    page = context.new_page()
+    page = browser.new_page(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    )
+    context = browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/114.0.0.0 Safari/537.36"
+        )
+    )
+    page = context.new_page()
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+    page = browser.new_page(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0 Safari/537.36"
+    )
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    page = browser.new_page()
+    print("🔍 dopa スクレイピング開始...")
+    page.goto("https://dopa-game.jp/", timeout=60000, wait_until="networkidle")
 
     try:
+        page.wait_for_selector("a[href^='/pokemon/gacha/'] img", timeout=60000)
+    except Exception as e:
+        print("🛑 要素が読み込まれませんでした。")
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        page.screenshot(path="dopa_debug.png")
+        print("🛑 要素が読み込まれませんでした。", e)
+        page.screenshot(path="dopa_debug.png")
         page.wait_for_selector("div.css-1flrjkp", timeout=60000)
     except Exception as e:
         print("🛑 要素が読み込まれませんでした。", e)
         page.screenshot(path="dopa_debug.png")
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        page.screenshot(path="dopa_debug.png")
+    except Exception:
+        # Fallback when class names change
+        try:
+            page.wait_for_selector("a[href^='/pokemon/gacha/'] img", timeout=10000)
+        except Exception as e:
+            print("🛑 要素が読み込まれませんでした。")
+            with open("dopa_debug.html", "w", encoding="utf-8") as f:
+                f.write(page.content())
+            page.screenshot(path="dopa_debug.png", full_page=True)
+            browser.close()
+            exit()
+            page.screenshot(path="dopa_debug.png")
+            browser.close()
+            exit()
+    except Exception as e:
+
+        print("🛑 要素が読み込まれませんでした。", e)
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        try:
+            page.screenshot(path="dopa_debug.png", full_page=True)
+        except Exception:
+            pass
+
+        print("🛑 要素が読み込まれませんでした。")
         with open("dopa_debug.html", "w", encoding="utf-8") as f:
             f.write(page.content())
         browser.close()
@@ -47,18 +118,40 @@ with sync_playwright() as p:
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("div.css-1flrjkp")
+
+    cards = []
+    for a in soup.select("a[href^='/pokemon/gacha/']"):
+        parent_div = a.find_parent("div")
+        if parent_div and parent_div not in cards:
+            cards.append(parent_div)
 
     for card in cards:
-        a_tag = card.select_one("a.css-4g6ai3")
+        a_tag = card.select_one("a[href^='/pokemon/gacha/']")
         img_tag = a_tag.select_one("img") if a_tag else None
+    cards = soup.select("div.css-1flrjkp")
+    fallback = False
+    if not cards:
+        cards = soup.select("a[href^='/pokemon/gacha/'] img")
+        fallback = True
+    if not cards:
+        cards = [a.parent for a in soup.select("a[href^='/pokemon/gacha/'] img")]
+        cards = {a.find_parent("div") for a in soup.select("a[href^='/pokemon/gacha/']")}
+        cards = list(cards)
+
+    for card in cards:
+        if fallback:
+            img_tag = card
+            a_tag = img_tag.find_parent("a")
+        else:
+            a_tag = card.select_one("a.css-4g6ai3")
+            img_tag = a_tag.select_one("img") if a_tag else None
 
         if not (a_tag and img_tag):
             continue
 
         title = img_tag.get("alt", "無題").strip()
-        image_url = img_tag["src"]
-        detail_url = a_tag["href"]
+        image_url = img_tag.get("src", "")
+        detail_url = a_tag.get("href", "") if a_tag else ""
 
         if image_url.startswith("/"):
             image_url = "https://dopa-game.jp" + image_url
@@ -66,15 +159,19 @@ with sync_playwright() as p:
             detail_url = "https://dopa-game.jp" + detail_url
 
         # ✅ PT数抽出（150だけ）
-        pt_tag = card.select_one("span.chakra-text.css-19bpybc")
-        pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
+        if fallback:
+            pt_text = ""
+        else:
+            pt_tag = card.select_one("span.chakra-text.css-19bpybc")
+            pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
 
         # 当たりカード画像をすべて取得
         atari_imgs = []
-        for atari_div in card.select('div.chakra-aspect-ratio.css-839f3u'):
-            img = atari_div.find('img')
-            if img and img.get('src'):
-                atari_imgs.append(img['src'])
+        if not fallback:
+            for atari_div in card.select('div.chakra-aspect-ratio.css-839f3u'):
+                img = atari_div.find('img')
+                if img and img.get('src'):
+                    atari_imgs.append(img['src'])
 
         # 画像URLをカンマ区切りで保存
         atari_imgs_str = ','.join(atari_imgs)
