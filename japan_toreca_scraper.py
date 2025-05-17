@@ -7,11 +7,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
+# ====== 設定値 ======
 BASE_URL = "https://japan-toreca.com/"
 SHEET_NAME = "その他"
+SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")  # ← グローバルで取得
 
 def save_credentials() -> str:
-    """GSHEET_JSONをデコードしてファイル保存"""
+    """GSHEET_JSONをデコードして認証ファイルとして保存"""
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
         raise RuntimeError("GSHEET_JSON environment variable is missing")
@@ -28,10 +30,9 @@ def get_sheet():
     ]
     creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
     client = gspread.authorize(creds)
-    sheet_url = os.environ.get("SPREADSHEET_URL")
-    if not sheet_url:
+    if not SPREADSHEET_URL:
         raise RuntimeError("SPREADSHEET_URL environment variable is missing")
-    spreadsheet = client.open_by_url(sheet_url)
+    spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
 def fetch_existing_urls(sheet) -> set:
@@ -119,7 +120,7 @@ def main() -> None:
     sheet = get_sheet()
     existing_urls = fetch_existing_urls(sheet)
     rows = fetch_items(existing_urls)
-    print(f"rows（新規データ）: {rows}")  # デバッグ
+    print(f"rows（新規データ）: {rows}")  # デバッグ用出力
     if not rows:
         print("📭 新規データなし")
         return
