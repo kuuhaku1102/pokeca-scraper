@@ -26,16 +26,60 @@ with sync_playwright() as p:
     page = browser.new_page(
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     )
+    context = browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/114.0.0.0 Safari/537.36"
+        )
+    )
+    page = context.new_page()
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+    page = browser.new_page(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0 Safari/537.36"
+    )
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    page = browser.new_page()
     print("🔍 dopa スクレイピング開始...")
     page.goto("https://dopa-game.jp/", timeout=60000, wait_until="networkidle")
 
     try:
+        page.wait_for_selector("a[href^='/pokemon/gacha/'] img", timeout=60000)
+    except Exception as e:
+        print("🛑 要素が読み込まれませんでした。", e)
+        page.screenshot(path="dopa_debug.png")
         page.wait_for_selector("div.css-1flrjkp", timeout=60000)
     except Exception as e:
         print("🛑 要素が読み込まれませんでした。", e)
         with open("dopa_debug.html", "w", encoding="utf-8") as f:
             f.write(page.content())
         page.screenshot(path="dopa_debug.png")
+    except Exception:
+        # Fallback when class names change
+        try:
+            page.wait_for_selector("a[href^='/pokemon/gacha/'] img", timeout=10000)
+        except Exception as e:
+            print("🛑 要素が読み込まれませんでした。")
+            with open("dopa_debug.html", "w", encoding="utf-8") as f:
+                f.write(page.content())
+            page.screenshot(path="dopa_debug.png")
+            browser.close()
+            exit()
+    except Exception as e:
+
+        print("🛑 要素が読み込まれませんでした。", e)
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        try:
+            page.screenshot(path="dopa_debug.png", full_page=True)
+        except Exception:
+            pass
+
+        print("🛑 要素が読み込まれませんでした。")
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
         browser.close()
         exit()
 
@@ -46,6 +90,10 @@ with sync_playwright() as p:
     if not cards:
         cards = soup.select("a[href^='/pokemon/gacha/'] img")
         fallback = True
+    if not cards:
+        cards = [a.parent for a in soup.select("a[href^='/pokemon/gacha/'] img")]
+        cards = {a.find_parent("div") for a in soup.select("a[href^='/pokemon/gacha/']")}
+        cards = list(cards)
 
     for card in cards:
         if fallback:
