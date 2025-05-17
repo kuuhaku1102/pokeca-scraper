@@ -23,6 +23,13 @@ results = []
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    page = browser.new_page(
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    )
     context = browser.new_context(
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -55,6 +62,10 @@ with sync_playwright() as p:
     try:
         page.wait_for_selector("a[href^='/pokemon/gacha/'] img", timeout=60000)
     except Exception as e:
+        print("🛑 要素が読み込まれませんでした。")
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        page.screenshot(path="dopa_debug.png")
         print("🛑 要素が読み込まれませんでした。", e)
         page.screenshot(path="dopa_debug.png")
         page.wait_for_selector("div.css-1flrjkp", timeout=60000)
@@ -95,6 +106,16 @@ with sync_playwright() as p:
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
+
+    cards = []
+    for a in soup.select("a[href^='/pokemon/gacha/']"):
+        parent_div = a.find_parent("div")
+        if parent_div and parent_div not in cards:
+            cards.append(parent_div)
+
+    for card in cards:
+        a_tag = card.select_one("a[href^='/pokemon/gacha/']")
+        img_tag = a_tag.select_one("img") if a_tag else None
     cards = soup.select("div.css-1flrjkp")
     fallback = False
     if not cards:
