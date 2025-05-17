@@ -22,15 +22,17 @@ existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 results = []
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
     page = browser.new_page()
     print("🔍 dopa スクレイピング開始...")
-    page.goto("https://dopa-game.jp/", timeout=60000)
+    page.goto("https://dopa-game.jp/", timeout=60000, wait_until="networkidle")
 
     try:
         page.wait_for_selector("div.css-1flrjkp", timeout=60000)
-    except Exception:
+    except Exception as e:
         print("🛑 要素が読み込まれませんでした。")
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
         browser.close()
         exit()
 
