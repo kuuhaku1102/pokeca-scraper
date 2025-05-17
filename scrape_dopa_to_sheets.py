@@ -22,21 +22,37 @@ existing_image_urls = {row[1] for row in existing_data if len(row) > 1}
 results = []
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_page()
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    context = browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/114.0.0.0 Safari/537.36"
+        )
+    )
+    page = context.new_page()
     print("🔍 dopa スクレイピング開始...")
-    page.goto("https://dopa-game.jp/", timeout=60000)
+    page.goto("https://dopa-game.jp/", timeout=60000, wait_until="networkidle")
 
     try:
         page.wait_for_selector("div.css-1flrjkp", timeout=60000)
     except Exception:
-        print("🛑 要素が読み込まれませんでした。")
-        browser.close()
-        exit()
+        # Fallback when class names change
+        try:
+            page.wait_for_selector("a[href^='/pokemon/gacha/'] img", timeout=10000)
+        except Exception as e:
+            print("🛑 要素が読み込まれませんでした。")
+            with open("dopa_debug.html", "w", encoding="utf-8") as f:
+                f.write(page.content())
+            page.screenshot(path="dopa_debug.png")
+            browser.close()
+            exit()
 
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select("div.css-1flrjkp")
+    if not cards:
+        cards = [a.parent for a in soup.select("a[href^='/pokemon/gacha/'] img")]
 
     for card in cards:
         a_tag = card.select_one("a.css-4g6ai3")
