@@ -1,0 +1,36 @@
+name: Scrape Ciel with Playwright
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */3 * * *'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install
+
+      - name: Run ciel scraper
+        env:
+          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+        run: python ciel_scraper.py
+
+      - name: Upload page debug HTML
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ciel_page_debug
+          path: ciel_page_debug.html
