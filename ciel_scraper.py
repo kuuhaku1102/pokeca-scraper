@@ -36,7 +36,7 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://ciel-toreca.com/", timeout=60000, wait_until="networkidle")
-        page.wait_for_selector("div.cursor-pointer a", timeout=20000)
+main
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         html = page.content()
@@ -44,19 +44,31 @@ with sync_playwright() as p:
         exit()
 
     html = page.content()
-    # --- JavaScriptで情報抽出 ---
+    # 対象のガチャ要素を抽出
     items = page.evaluate(
         """
         () => {
-            return Array.from(document.querySelectorAll('div.cursor-pointer a[href]')).map(a => {
-                const img = a.querySelector('img');
-                const ptSpan = a.querySelector('div.flex.items-center span.font-semibold');
-                const titleEl = a.querySelector('h3, h2, p, span');
-                const imageUrl = img?.getAttribute('data-src') || img?.src || '';
-                const pt = ptSpan ? ptSpan.textContent.trim() : '';
-                const title = titleEl ? titleEl.textContent.trim() : (img?.alt || img?.title || '');
-                return { title, image: imageUrl, url: a.href, pt };
-            }).filter(item => item.image);
+            const cards = document.querySelectorAll(
+                'div.cursor-pointer a[href^="/gacha/"]'
+            );
+            return Array.from(cards).map(card => {
+                const img = card.querySelector('img');
+                const image = img ? (img.dataset.src || img.src) : '';
+
+                let title = '';
+                const titleEl = card.querySelector('div.text-yellow-400') || card.querySelector('div.pt-2.5');
+                if (titleEl) {
+                    title = titleEl.textContent.trim();
+                } else if (img) {
+                    title = img.alt || img.title || '';
+                }
+
+                const ptEl = card.querySelector('.flex.items-center span.font-semibold');
+                const pt = ptEl ? ptEl.textContent.trim() : '';
+
+                return { title, image, url: card.href, pt };
+            });
+main
         }
         """
     )
@@ -71,7 +83,8 @@ with sync_playwright() as p:
             title = item["title"].strip()
             image_url = item["image"]
             detail_url = item["url"]
-            pt_text = item.get("pt", "")
+            pt = item.get("pt", "").strip()
+ main
 
             if image_url.startswith("/"):
                 image_url = "https://ciel-toreca.com" + image_url
@@ -83,8 +96,9 @@ with sync_playwright() as p:
                 print(f"⏭ スキップ（重複）: {title}")
                 continue
 
-            print(f"✅ 取得: {title} / {pt_text}")
-            results.append([title, image_url, detail_url, pt_text])
+            print(f"✅ 取得: {title}")
+            results.append([title, image_url, detail_url, pt])
+main
 
 # --- スプレッドシートに追記 ---
 if results:
