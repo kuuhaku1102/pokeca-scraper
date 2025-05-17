@@ -70,3 +70,17 @@ python sparkoripa_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_sparkoripa.yml` runs this scraper on a schedule.
+
+## Eve Gacha Scraper
+
+The `eve_gacha_scraper.py` script gathers gacha information from [eve-gacha.com](https://eve-gacha.com/). It uses `requests` and `BeautifulSoup` to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+python eve_gacha_scraper.py
+```
+
+The workflow `.github/workflows/scrape_evegacha.yml` runs this scraper automatically.
