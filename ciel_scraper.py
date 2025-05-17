@@ -36,6 +36,7 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://ciel-toreca.com/", timeout=60000, wait_until="networkidle")
+ main
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         html = page.content()
@@ -43,20 +44,7 @@ with sync_playwright() as p:
         exit()
 
     html = page.content()
-    # DOM からガチャカードの情報を抽出
-    items = page.evaluate(
-        """
-        () => Array.from(document.querySelectorAll('a[href^="/gacha/"]')).map(a => {
-            const img = a.querySelector('img');
-            const titleEl = a.querySelector('.text-yellow-400');
-            const ptEl = a.querySelector('.flex.items-center span.font-semibold');
-            return {
-                title: titleEl ? titleEl.textContent.trim() : (img?.alt || img?.title || 'no title'),
-                image: img ? (img.dataset.src || img.src) : '',
-                url: a.href,
-                pt: ptEl ? ptEl.textContent.trim() : ''
-            };
-        })
+main
         """
     )
 
@@ -70,6 +58,7 @@ with sync_playwright() as p:
             title = item["title"].strip()
             image_url = item["image"]
             detail_url = item["url"]
+ main
 
             if image_url.startswith("/"):
                 image_url = "https://ciel-toreca.com" + image_url
@@ -81,9 +70,7 @@ with sync_playwright() as p:
                 print(f"⏭ スキップ（重複）: {title}")
                 continue
 
-            pt = item.get("pt", "")
-            print(f"✅ 取得: {title} ({pt}PT)")
-            results.append([title, image_url, detail_url, pt])
+ main
 
 # --- スプレッドシートに追記 ---
 if results:
