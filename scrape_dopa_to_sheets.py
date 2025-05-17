@@ -23,6 +23,9 @@ results = []
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    page = browser.new_page(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    )
     context = browser.new_context(
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -48,6 +51,11 @@ with sync_playwright() as p:
         print("🛑 要素が読み込まれませんでした。", e)
         page.screenshot(path="dopa_debug.png")
         page.wait_for_selector("div.css-1flrjkp", timeout=60000)
+    except Exception as e:
+        print("🛑 要素が読み込まれませんでした。", e)
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        page.screenshot(path="dopa_debug.png")
     except Exception:
         # Fallback when class names change
         try:
@@ -78,21 +86,29 @@ with sync_playwright() as p:
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select("div.css-1flrjkp")
+    fallback = False
+    if not cards:
+        cards = soup.select("a[href^='/pokemon/gacha/'] img")
+        fallback = True
     if not cards:
         cards = [a.parent for a in soup.select("a[href^='/pokemon/gacha/'] img")]
         cards = {a.find_parent("div") for a in soup.select("a[href^='/pokemon/gacha/']")}
         cards = list(cards)
 
     for card in cards:
-        a_tag = card.select_one("a.css-4g6ai3")
-        img_tag = a_tag.select_one("img") if a_tag else None
+        if fallback:
+            img_tag = card
+            a_tag = img_tag.find_parent("a")
+        else:
+            a_tag = card.select_one("a.css-4g6ai3")
+            img_tag = a_tag.select_one("img") if a_tag else None
 
         if not (a_tag and img_tag):
             continue
 
         title = img_tag.get("alt", "無題").strip()
-        image_url = img_tag["src"]
-        detail_url = a_tag["href"]
+        image_url = img_tag.get("src", "")
+        detail_url = a_tag.get("href", "") if a_tag else ""
 
         if image_url.startswith("/"):
             image_url = "https://dopa-game.jp" + image_url
@@ -100,15 +116,19 @@ with sync_playwright() as p:
             detail_url = "https://dopa-game.jp" + detail_url
 
         # ✅ PT数抽出（150だけ）
-        pt_tag = card.select_one("span.chakra-text.css-19bpybc")
-        pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
+        if fallback:
+            pt_text = ""
+        else:
+            pt_tag = card.select_one("span.chakra-text.css-19bpybc")
+            pt_text = pt_tag.get_text(strip=True) if pt_tag else ""
 
         # 当たりカード画像をすべて取得
         atari_imgs = []
-        for atari_div in card.select('div.chakra-aspect-ratio.css-839f3u'):
-            img = atari_div.find('img')
-            if img and img.get('src'):
-                atari_imgs.append(img['src'])
+        if not fallback:
+            for atari_div in card.select('div.chakra-aspect-ratio.css-839f3u'):
+                img = atari_div.find('img')
+                if img and img.get('src'):
+                    atari_imgs.append(img['src'])
 
         # 画像URLをカンマ区切りで保存
         atari_imgs_str = ','.join(atari_imgs)
