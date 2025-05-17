@@ -10,9 +10,8 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "https://japan-toreca.com/"
 SHEET_NAME = "その他"
 
-
 def save_credentials() -> str:
-    """Decode credentials JSON from env and save to a file."""
+    """GSHEET_JSONをデコードしてファイル保存"""
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
         raise RuntimeError("GSHEET_JSON environment variable is missing")
@@ -20,9 +19,8 @@ def save_credentials() -> str:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
 
-
 def get_sheet():
-    """Return gspread worksheet using env SPREADSHEET_URL."""
+    """Googleスプレッドシートの 'その他' シートを返す"""
     creds_path = save_credentials()
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -36,9 +34,8 @@ def get_sheet():
     spreadsheet = client.open_by_url(sheet_url)
     return spreadsheet.worksheet(SHEET_NAME)
 
-
 def fetch_existing_urls(sheet) -> set:
-    """Get existing detail URLs from the sheet."""
+    """既存URL（3列目）をsetで取得"""
     records = sheet.get_all_values()
     url_set = set()
     for row in records[1:]:
@@ -46,9 +43,8 @@ def fetch_existing_urls(sheet) -> set:
             url_set.add(row[2].strip())
     return url_set
 
-
 def fetch_items(existing_urls: set) -> List[List[str]]:
-    """Scrape TOP page of japan-toreca using Playwright."""
+    """japan-toreca TOPをPlaywrightでスクレイピングし、[タイトル,画像URL,詳細URL,PT]を返す"""
     rows: List[List[str]] = []
     html = ""
     with sync_playwright() as p:
@@ -66,7 +62,7 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
                 f.write(html)
             return rows
 
-        # DOMから必要情報を抽出
+        # 必要な情報をDOMから抽出（JS実行）
         items = page.evaluate(
             """
             () => {
@@ -94,7 +90,7 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
         html = page.content()
         browser.close()
 
-    # 先頭10件程度のみ利用
+    # 新規アイテムを作成（重複除外）
     for item in items[:10]:
         detail_url = item.get("url", "")
         image_url = item.get("image", "")
@@ -107,28 +103,31 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
             image_url = urljoin(BASE_URL, image_url)
 
         if detail_url in existing_urls:
-            print(f"⏭ スキップ（重複）: {title}")
+            print(f"⏭ スキップ（重複）: {title} ({detail_url})")
             continue
 
-        print(f"✅ 取得: {title}")
+        print(f"✅ 取得: {title} ({detail_url})")
         rows.append([title, image_url, detail_url, pt_text])
         existing_urls.add(detail_url)
 
+    # デバッグ用HTML出力
     with open("japan_toreca_debug.html", "w", encoding="utf-8") as f:
         f.write(html)
     return rows
-
 
 def main() -> None:
     sheet = get_sheet()
     existing_urls = fetch_existing_urls(sheet)
     rows = fetch_items(existing_urls)
+    print(f"rows（新規データ）: {rows}")  # デバッグ
     if not rows:
         print("📭 新規データなし")
         return
-    sheet.append_rows(rows, value_input_option="USER_ENTERED")
-    print(f"📥 {len(rows)} 件追記完了")
-
+    try:
+        sheet.append_rows(rows, value_input_option="USER_ENTERED")
+        print(f"📥 {len(rows)} 件追記完了")
+    except Exception as e:
+        print(f"❌ 書き込みエラー: {e}")
 
 if __name__ == "__main__":
     main()
