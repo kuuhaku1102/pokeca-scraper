@@ -2,6 +2,7 @@ import os
 import base64
 from urllib.parse import urljoin
 from typing import List
+import re
 
 import requests
 from bs4 import BeautifulSoup
@@ -34,39 +35,43 @@ def get_sheet():
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
+def extract_bg_url(style: str) -> str:
+    """
+    Extract background-image url from style attribute.
+    Example: background-image: url(https://...); -> https://...
+    """
+    match = re.search(r"background-image\s*:\s*url\(['\"]?([^'\")]+)['\"]?\)", style)
+    return match.group(1) if match else ""
+
 def fetch_items() -> List[List[str]]:
-    """Scrape gacha information from sparkoripa.jp, skipping coin/price images."""
+    """Scrape gacha information from sparkoripa.jp (background-image対応)."""
     resp = requests.get(BASE_URL, headers=HEADERS, timeout=30)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     rows: List[List[str]] = []
 
     for a in soup.select("a[href^='/packs/']"):
-        # 商品画像のみを対象（altが「料金」や空白は除外）
-        imgs = a.find_all("img")
-        item_img = None
-        item_title = ""
-        for img in imgs:
-            alt = img.get("alt", "").strip()
-            if alt and alt != "料金":
-                item_img = img
-                item_title = alt
-                break
-        # 万一見つからない場合はa内のテキスト
-        if item_img:
-            img_url = item_img["src"]
-        else:
-            img_url = ""
-            item_title = a.get_text(strip=True)
+        # サムネイル画像取得: .css-pmgirのstyle属性からbackground-image
+        bg_div = a.select_one(".css-pmgir")
+        img_url = ""
+        if bg_div and bg_div.has_attr("style"):
+            img_url = extract_bg_url(bg_div["style"])
+            if img_url and img_url.startswith("/"):
+                img_url = urljoin(BASE_URL, img_url)
 
-        # 絶対パス化
-        if img_url.startswith("/"):
-            img_url = urljoin(BASE_URL, img_url)
+        # タイトル取得: 可能であればa内の他のテキストやimg altなど工夫
+        # ここではaタグ内で最大文字数のテキストをタイトルにする
+        text_candidates = [t.strip() for t in a.stripped_strings if t.strip()]
+        title = max(text_candidates, key=len) if text_candidates else ""
+
+        # 詳細ページURL
         detail_url = urljoin(BASE_URL, a.get("href", ""))
+
+        # PT
         pt_tag = a.select_one("p.chakra-text.css-11ys2a")
         pt = pt_tag.get_text(strip=True) if pt_tag else ""
 
-        rows.append([item_title, img_url, detail_url, pt])
+        rows.append([title, img_url, detail_url, pt])
     return rows
 
 def main() -> None:
