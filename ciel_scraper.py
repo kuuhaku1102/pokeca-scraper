@@ -42,6 +42,25 @@ with sync_playwright() as p:
         browser.close()
         exit()
 
+
+    page.wait_for_selector("div.cursor-pointer", timeout=60000)
+    html = page.content()
+    items = page.evaluate(
+        """
+        () => {
+            const cards = document.querySelectorAll('div.cursor-pointer a[href*="/gacha/"]');
+            const results = [];
+            cards.forEach(a => {
+                const img = a.querySelector('img');
+                if (!img) return;
+                const image = img.getAttribute('src') || img.getAttribute('data-src');
+                const title = img.getAttribute('alt') || img.getAttribute('title') || '';
+                const ptEl = a.querySelector('div.flex.items-center span.font-semibold');
+                const pt = ptEl ? ptEl.textContent.trim() + 'PT' : '';
+                results.push({ title, image, url: a.href, pt });
+            });
+            return results;
+        }
     html = page.content()
 
     # DOMから画像とリンクを抽出（汎用的な例）
@@ -87,11 +106,16 @@ with sync_playwright() as p:
                 continue
 
 
+            print(f"✅ 取得: {title}")
+            results.append([title, image_url, detail_url, item.get("pt", "")])
+
 
 # --- スプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
     try:
+        sheet.update(range_name=f"A{next_row}:D{next_row + len(results) - 1}", values=results)
+
         print(f"📥 {len(results)} 件追記完了")
     except Exception as e:
         print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
