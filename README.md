@@ -56,3 +56,17 @@ python dokkan_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_dokkan.yml` runs this scraper weekly.
+
+## Spark Oripa Scraper
+
+The `sparkoripa_scraper.py` script collects gacha data from [sparkoripa.jp](https://sparkoripa.jp/). It uses `requests` and `BeautifulSoup` to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+python sparkoripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_sparkoripa.yml` runs this scraper on a schedule.
