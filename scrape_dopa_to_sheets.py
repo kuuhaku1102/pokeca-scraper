@@ -23,6 +23,17 @@ results = []
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    page = browser.new_page()
+    print("🔍 dopa スクレイピング開始...")
+    try:
+        page.goto("https://dopa-game.jp/", timeout=60000, wait_until="networkidle")
+    except Exception as e:
+        print("🛑 ページにアクセスできませんでした。", e)
+        page.screenshot(path="dopa_debug.png")
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        browser.close()
+        exit()
     page = browser.new_page(
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -71,6 +82,7 @@ with sync_playwright() as p:
         page.wait_for_selector("div.css-1flrjkp", timeout=60000)
     except Exception as e:
         print("🛑 要素が読み込まれませんでした。", e)
+        page.screenshot(path="dopa_debug.png")
         with open("dopa_debug.html", "w", encoding="utf-8") as f:
             f.write(page.content())
         page.screenshot(path="dopa_debug.png")
