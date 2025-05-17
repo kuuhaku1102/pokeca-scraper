@@ -6,11 +6,9 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-
 def strip_query(url: str) -> str:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
 
 # --- Google Sheets 認証 ---
 with open("credentials.json", "w") as f:
@@ -87,12 +85,10 @@ with sync_playwright() as p:
             print(f"✅ 取得: {title}")
             results.append([title, image_url, detail_url, item.get("pt", "")])
 
-
 # --- スプレッドシートに追記 ---
 if results:
-    next_row = len(existing_data) + 2
     try:
-        sheet.update(range_name=f"A{next_row}:D{next_row + len(results) - 1}", values=results)
+        sheet.append_rows(results, value_input_option='USER_ENTERED')
         print(f"📥 {len(results)} 件追記完了")
     except Exception as e:
         print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
