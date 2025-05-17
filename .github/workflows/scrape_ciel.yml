@@ -1,4 +1,4 @@
-name: Scrape Ciel Toreca
+name: Scrape Ciel with Playwright
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
           pip install -r requirements.txt
           python -m playwright install
 
-      - name: Run Ciel scraper
+      - name: Run ciel scraper
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
         run: python ciel_scraper.py
