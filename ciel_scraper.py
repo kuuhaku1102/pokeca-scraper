@@ -44,7 +44,25 @@ with sync_playwright() as p:
         exit()
 
     html = page.content()
-main
+
+    # DOMから画像とリンクを抽出（汎用的な例）
+    items = page.evaluate(
+        """
+        () => {
+            const results = [];
+            document.querySelectorAll('a').forEach(a => {
+                const img = a.querySelector('img');
+                if (img && img.src) {
+                    results.push({
+                        title: img.alt || img.title || 'no title',
+                        image: img.src,
+                        url: a.href
+                    });
+                }
+            });
+            return results;
+        }
+
         """
     )
 
@@ -58,7 +76,6 @@ main
             title = item["title"].strip()
             image_url = item["image"]
             detail_url = item["url"]
- main
 
             if image_url.startswith("/"):
                 image_url = "https://ciel-toreca.com" + image_url
@@ -70,13 +87,12 @@ main
                 print(f"⏭ スキップ（重複）: {title}")
                 continue
 
- main
+
 
 # --- スプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
     try:
-        sheet.update(range_name=f"A{next_row}:D{next_row + len(results) - 1}", values=results)
         print(f"📥 {len(results)} 件追記完了")
     except Exception as e:
         print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
