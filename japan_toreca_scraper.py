@@ -50,14 +50,13 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
     html = ""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        # ここでUser-Agent指定
         context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
         page = context.new_page()
         print("🔍 japan-toreca スクレイピング開始...")
         try:
-            # タイムアウトを2分(120000ms)、wait_untilをdomcontentloadedに
             page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
-            page.wait_for_selector("img", timeout=60000)
+            # カードaタグが出てくるまで待機
+            page.wait_for_selector('a[data-sentry-component="NewOripaCard"]', timeout=60000)
         except Exception as e:
             print(f"🛑 ページ読み込み失敗: {e}")
             html = page.content()
@@ -66,15 +65,15 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
                 f.write(html)
             return rows
 
-        # 必要な情報をDOMから抽出（JS実行）
+        # カードaタグ単位で抽出
         items = page.evaluate(
             """
             () => {
                 const results = [];
-                document.querySelectorAll('[data-sentry-source-file="NewOripaCard.tsx"]').forEach(card => {
-                    const link = card.closest('a') || card.querySelector('a[href]');
+                document.querySelectorAll('a[data-sentry-component="NewOripaCard"]').forEach(card => {
+                    const href = card.getAttribute('href') || '';
                     const img = card.querySelector('img');
-                    if (!link || !img) return;
+                    if (!img) return;
                     const title = (img.getAttribute('alt') || '').trim() || 'noname';
                     let image = img.getAttribute('src') || '';
                     const srcset = img.getAttribute('srcset');
@@ -82,15 +81,17 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
                         const parts = srcset.split(',').map(s => s.trim().split(' ')[0]);
                         image = parts[parts.length - 1] || image;
                     }
+                    // コイン数（PT）は span.css-1qwnwpn
                     let pt = '';
-                    const span = card.querySelector('p span');
+                    const span = card.querySelector('span.css-1qwnwpn');
                     if (span) pt = span.textContent.trim();
-                    results.push({ title, image, url: link.href, pt });
+                    results.push({ title, image, url: href, pt });
                 });
                 return results;
             }
             """
         )
+        print(f"ヒットしたカード数: {len(items)}")
         html = page.content()
         browser.close()
 
@@ -114,7 +115,6 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
         rows.append([title, image_url, detail_url, pt_text])
         existing_urls.add(detail_url)
 
-    # デバッグ用HTML出力
     with open("japan_toreca_debug.html", "w", encoding="utf-8") as f:
         f.write(html)
     return rows
