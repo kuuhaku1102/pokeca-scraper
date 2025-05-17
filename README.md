@@ -28,3 +28,17 @@ python iris_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_iris.yml` runs this scraper automatically on a schedule.
+
+## Oripa ex-toreca Scraper
+
+The `oripa_ex_scraper.py` script scrapes pack data from [oripa.ex-toreca.com](https://oripa.ex-toreca.com/). It uses `requests` and `BeautifulSoup` to gather pack titles, image URLs, detail page links and PT values, then appends them to the `その他` sheet of the same spreadsheet.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+python oripa_ex_scraper.py
+```
+
+This scraper is executed automatically via the `.github/workflows/scrape_oripa_ex.yml` workflow.
