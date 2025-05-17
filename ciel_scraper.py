@@ -36,6 +36,7 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://ciel-toreca.com/", timeout=60000, wait_until="networkidle")
+main
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         html = page.content()
@@ -67,6 +68,7 @@ with sync_playwright() as p:
 
                 return { title, image, url: card.href, pt };
             });
+main
         }
         """
     )
@@ -82,6 +84,7 @@ with sync_playwright() as p:
             image_url = item["image"]
             detail_url = item["url"]
             pt = item.get("pt", "").strip()
+ main
 
             if image_url.startswith("/"):
                 image_url = "https://ciel-toreca.com" + image_url
@@ -95,6 +98,7 @@ with sync_playwright() as p:
 
             print(f"✅ 取得: {title}")
             results.append([title, image_url, detail_url, pt])
+main
 
 # --- スプレッドシートに追記 ---
 if results:
