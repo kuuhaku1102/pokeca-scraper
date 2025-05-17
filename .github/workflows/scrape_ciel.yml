@@ -24,6 +24,9 @@ jobs:
           python -m playwright install
 
       - name: Run ciel scraper
+
+      - name: Run Ciel scraper
+
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
         run: python ciel_scraper.py

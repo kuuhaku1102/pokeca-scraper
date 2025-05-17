@@ -42,6 +42,7 @@ with sync_playwright() as p:
         browser.close()
         exit()
 
+
     page.wait_for_selector("div.cursor-pointer", timeout=60000)
     html = page.content()
     items = page.evaluate(
@@ -60,6 +61,26 @@ with sync_playwright() as p:
             });
             return results;
         }
+    html = page.content()
+
+    # DOMから画像とリンクを抽出（汎用的な例）
+    items = page.evaluate(
+        """
+        () => {
+            const results = [];
+            document.querySelectorAll('a').forEach(a => {
+                const img = a.querySelector('img');
+                if (img && img.src) {
+                    results.push({
+                        title: img.alt || img.title || 'no title',
+                        image: img.src,
+                        url: a.href
+                    });
+                }
+            });
+            return results;
+        }
+
         """
     )
 
@@ -84,14 +105,17 @@ with sync_playwright() as p:
                 print(f"⏭ スキップ（重複）: {title}")
                 continue
 
+
             print(f"✅ 取得: {title}")
             results.append([title, image_url, detail_url, item.get("pt", "")])
+
 
 # --- スプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
     try:
         sheet.update(range_name=f"A{next_row}:D{next_row + len(results) - 1}", values=results)
+
         print(f"📥 {len(results)} 件追記完了")
     except Exception as e:
         print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
