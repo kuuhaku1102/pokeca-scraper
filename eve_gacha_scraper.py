@@ -77,6 +77,7 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
         title = "noname"
         if img:
             image_url = img.get("data-src") or img.get("src", "")
+            image_url = img.get("src", "")
             if image_url.startswith("/"):
                 image_url = urljoin(BASE_URL, image_url)
             alt = img.get("alt") or img.get("title")
@@ -88,6 +89,12 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
                 title = text.split()[0]
 
         pt_text = container.get_text(" ", strip=True)
+        if not title or title == "noname":
+            text = " ".join(t.strip() for t in a.stripped_strings if t.strip())
+            if text:
+                title = text
+
+        pt_text = a.get_text(" ", strip=True)
         pt = extract_pt(pt_text)
 
         rows.append([title, image_url, detail_url, pt])
