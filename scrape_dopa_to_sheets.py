@@ -28,6 +28,8 @@ with sync_playwright() as p:
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0 Safari/537.36"
     )
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    page = browser.new_page()
     print("🔍 dopa スクレイピング開始...")
     page.goto("https://dopa-game.jp/", timeout=60000, wait_until="networkidle")
 
@@ -36,6 +38,18 @@ with sync_playwright() as p:
     except Exception as e:
         print("🛑 要素が読み込まれませんでした。", e)
         page.screenshot(path="dopa_debug.png")
+        page.wait_for_selector("div.css-1flrjkp", timeout=60000)
+    except Exception as e:
+
+        print("🛑 要素が読み込まれませんでした。", e)
+        with open("dopa_debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        try:
+            page.screenshot(path="dopa_debug.png", full_page=True)
+        except Exception:
+            pass
+
+        print("🛑 要素が読み込まれませんでした。")
         with open("dopa_debug.html", "w", encoding="utf-8") as f:
             f.write(page.content())
         browser.close()
