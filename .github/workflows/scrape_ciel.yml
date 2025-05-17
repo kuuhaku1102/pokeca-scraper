@@ -1,10 +1,10 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a//dev/null b/.github/workflows/scrape_ciel.yml
-index 0000000..50fa4b8 100644
+index 0000000..e14d159 100644
 --- a//dev/null
 +++ b/.github/workflows/scrape_ciel.yml
 @@ -0,0 +1,36 @@
-+name: Scrape Ciel Toreca with Playwright
++name: Scrape Ciel Toreca
 +
 +on:
 +  workflow_dispatch:
