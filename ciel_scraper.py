@@ -43,22 +43,30 @@ with sync_playwright() as p:
         exit()
 
     html = page.content()
-    # DOMから画像とリンクを抽出（汎用的な例）
+    # 対象のガチャ要素を抽出
     items = page.evaluate(
         """
         () => {
-            const results = [];
-            document.querySelectorAll('a').forEach(a => {
-                const img = a.querySelector('img');
-                if (img && img.src) {
-                    results.push({
-                        title: img.alt || img.title || 'no title',
-                        image: img.src,
-                        url: a.href
-                    });
+            const cards = document.querySelectorAll(
+                'div.cursor-pointer a[href^="/gacha/"]'
+            );
+            return Array.from(cards).map(card => {
+                const img = card.querySelector('img');
+                const image = img ? (img.dataset.src || img.src) : '';
+
+                let title = '';
+                const titleEl = card.querySelector('div.text-yellow-400') || card.querySelector('div.pt-2.5');
+                if (titleEl) {
+                    title = titleEl.textContent.trim();
+                } else if (img) {
+                    title = img.alt || img.title || '';
                 }
+
+                const ptEl = card.querySelector('.flex.items-center span.font-semibold');
+                const pt = ptEl ? ptEl.textContent.trim() : '';
+
+                return { title, image, url: card.href, pt };
             });
-            return results;
         }
         """
     )
@@ -73,6 +81,7 @@ with sync_playwright() as p:
             title = item["title"].strip()
             image_url = item["image"]
             detail_url = item["url"]
+            pt = item.get("pt", "").strip()
 
             if image_url.startswith("/"):
                 image_url = "https://ciel-toreca.com" + image_url
@@ -85,13 +94,13 @@ with sync_playwright() as p:
                 continue
 
             print(f"✅ 取得: {title}")
-            results.append([title, image_url, detail_url])
+            results.append([title, image_url, detail_url, pt])
 
 # --- スプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
     try:
-        sheet.update(range_name=f"A{next_row}:C{next_row + len(results) - 1}", values=results)
+        sheet.update(range_name=f"A{next_row}:D{next_row + len(results) - 1}", values=results)
         print(f"📥 {len(results)} 件追記完了")
     except Exception as e:
         print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
