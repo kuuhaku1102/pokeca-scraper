@@ -70,16 +70,25 @@ def fetch_items(existing_urls: set) -> List[List[str]]:
         if detail_url in existing_urls:
             continue
 
+        container = a.find_parent("div") or a
+
         img = a.find("img")
         image_url = ""
         title = "noname"
         if img:
+            image_url = img.get("data-src") or img.get("src", "")
             image_url = img.get("src", "")
             if image_url.startswith("/"):
                 image_url = urljoin(BASE_URL, image_url)
             alt = img.get("alt") or img.get("title")
             if alt:
                 title = alt.strip() or title
+        if title == "noname":
+            text = " ".join(t.strip() for t in container.stripped_strings if t.strip())
+            if text:
+                title = text.split()[0]
+
+        pt_text = container.get_text(" ", strip=True)
         if not title or title == "noname":
             text = " ".join(t.strip() for t in a.stripped_strings if t.strip())
             if text:
