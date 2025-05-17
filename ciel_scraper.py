@@ -36,6 +36,7 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://ciel-toreca.com/", timeout=60000, wait_until="networkidle")
+ main
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         html = page.content()
@@ -43,6 +44,7 @@ with sync_playwright() as p:
         exit()
 
     html = page.content()
+
     # DOMから画像とリンクを抽出（汎用的な例）
     items = page.evaluate(
         """
@@ -60,6 +62,7 @@ with sync_playwright() as p:
             });
             return results;
         }
+
         """
     )
 
@@ -84,14 +87,12 @@ with sync_playwright() as p:
                 print(f"⏭ スキップ（重複）: {title}")
                 continue
 
-            print(f"✅ 取得: {title}")
-            results.append([title, image_url, detail_url])
+
 
 # --- スプレッドシートに追記 ---
 if results:
     next_row = len(existing_data) + 2
     try:
-        sheet.update(range_name=f"A{next_row}:C{next_row + len(results) - 1}", values=results)
         print(f"📥 {len(results)} 件追記完了")
     except Exception as e:
         print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
