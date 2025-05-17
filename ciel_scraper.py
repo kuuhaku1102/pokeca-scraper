@@ -36,7 +36,6 @@ with sync_playwright() as p:
 
     try:
         page.goto("https://ciel-toreca.com/", timeout=60000, wait_until="networkidle")
- main
     except Exception as e:
         print(f"🛑 ページ読み込みエラー: {str(e)}")
         html = page.content()
