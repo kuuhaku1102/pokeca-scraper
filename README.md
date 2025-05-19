@@ -99,3 +99,18 @@ python japan_toreca_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_japan_toreca.yml` runs this scraper automatically.
+
+## Orikuji Scraper
+
+The `orikuji_scraper.py` script fetches gacha information from [orikuji.com](https://orikuji.com/). It uses Playwright to collect the title, image URL, detail page link and PT value from the front page, skipping entries that already exist in the `その他` sheet.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python orikuji_scraper.py
+```
+
+The workflow `.github/workflows/scrape_orikuji.yml` runs this scraper automatically.
