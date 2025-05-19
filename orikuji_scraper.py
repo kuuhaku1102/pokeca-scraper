@@ -53,13 +53,21 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
 
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            # LazyLoad対策: 2回スクロール
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(2000)
-            page.evaluate("window.scrollTo(0, 0)")
-            page.wait_for_timeout(1000)
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(2000)
+
+            # --- 無限スクロールで全ガチャをロード ---
+            def scroll_to_load_all(page, selector="div.white-box", max_tries=30):
+                prev_count = 0
+                for i in range(max_tries):
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    page.wait_for_timeout(1200)
+                    elems = page.query_selector_all(selector)
+                    curr_count = len(elems)
+                    if curr_count == prev_count:
+                        break
+                    prev_count = curr_count
+                print(f"👀 {curr_count}件の {selector} を検出")
+            scroll_to_load_all(page)
+
             page.wait_for_selector("div.white-box img", timeout=60000)
 
             items = page.evaluate(
@@ -70,7 +78,6 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
                         const link = box.querySelector('a[href*="/gacha/"]');
                         const img = box.querySelector('div.image-container img');
                         if (!link || !img) return;
-
                         const imgSrc = img.getAttribute('data-src') || img.getAttribute('src') || '';
                         if (
                             imgSrc.includes('/img/coin.png') ||
