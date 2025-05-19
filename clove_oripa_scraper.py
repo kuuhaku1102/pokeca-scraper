@@ -1,7 +1,7 @@
 import os
 import base64
 from typing import List
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -10,7 +10,6 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "https://oripa.clove.jp/oripa/All"
 SHEET_NAME = "その他"
 
-
 def save_credentials() -> str:
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
@@ -18,7 +17,6 @@ def save_credentials() -> str:
     with open("credentials.json", "w") as f:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
-
 
 def get_sheet():
     creds_path = save_credentials()
@@ -31,6 +29,12 @@ def get_sheet():
     spreadsheet = client.open_by_url(spreadsheet_url)
     return spreadsheet.worksheet(SHEET_NAME)
 
+def normalize_url(url: str) -> str:
+    """クエリパラメータ・末尾スラッシュ除去した絶対URLに正規化"""
+    if url.startswith("/"):
+        url = urljoin("https://oripa.clove.jp", url)
+    parts = urlparse(url)
+    return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
 
 def fetch_existing_urls(sheet) -> set:
     records = sheet.get_all_values()
@@ -39,9 +43,10 @@ def fetch_existing_urls(sheet) -> set:
         if len(row) >= 3:
             u = row[2].strip()
             if u:
-                urls.add(u)
+                norm = normalize_url(u)
+                urls.add(norm)
+    print("既存URLリスト:", urls)  # デバッグ用
     return urls
-
 
 def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
@@ -91,12 +96,14 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         pt_text = item.get("pt", "")
 
         if detail_url.startswith("/"):
-            detail_url = urljoin(BASE_URL, detail_url)
+            detail_url = urljoin("https://oripa.clove.jp", detail_url)
+        detail_url = normalize_url(detail_url)
         if image_url.startswith("/"):
-            image_url = urljoin(BASE_URL, image_url)
+            image_url = urljoin("https://oripa.clove.jp", image_url)
 
+        # デバッグ: print(f"取得詳細URL: {detail_url}")
         if detail_url in existing_urls:
-            print(f"⏭ スキップ（重複）: {title}")
+            print(f"⏭ スキップ（重複）: {title} ({detail_url})")
             continue
 
         rows.append([title, image_url, detail_url, pt_text])
@@ -106,7 +113,6 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         with open("clove_oripa_page_debug.html", "w", encoding="utf-8") as f:
             f.write(html)
     return rows
-
 
 def main() -> None:
     try:
@@ -125,7 +131,6 @@ def main() -> None:
             print("📭 新規データなし")
     except Exception as exc:
         print(f"❌ エラー: {exc}")
-
 
 if __name__ == "__main__":
     main()
