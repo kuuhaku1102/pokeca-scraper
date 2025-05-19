@@ -77,8 +77,22 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                     const title = img ? (img.getAttribute('alt') || '').trim() : 'noname';
                     const image = img ? (img.src || img.getAttribute('src') || '') : '';
                     let url = '';
-                    const link = box.querySelector('a[href]') || box.closest('a[href]');
-                    if (link) url = link.href;
+                    // imgの親を遡ってaタグを取得
+                    if (img) {
+                        let current = img.parentElement;
+                        while (current && !url) {
+                            if (current.tagName && current.tagName.toLowerCase() === 'a' && current.href) {
+                                url = current.href;
+                                break;
+                            }
+                            current = current.parentElement;
+                        }
+                    }
+                    if (!url) {
+                        // div.css-k3cv9u直下のaタグ
+                        const directLink = box.querySelector('a[href]');
+                        if (directLink) url = directLink.href;
+                    }
                     const ptEl = box.querySelector('p.chakra-text');
                     const pt = ptEl ? ptEl.textContent.trim() : '';
                     results.push({ title, image, url, pt });
@@ -101,7 +115,11 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         if image_url.startswith("/"):
             image_url = urljoin("https://oripa.clove.jp", image_url)
 
-        # デバッグ: print(f"取得詳細URL: {detail_url}")
+        print(f"取得詳細URL: '{detail_url}'")
+        if not detail_url or detail_url == "https://oripa.clove.jp/oripa/All":
+            print(f"⚠️ URLが空または一覧URL: {title}")
+            continue
+
         if detail_url in existing_urls:
             print(f"⏭ スキップ（重複）: {title} ({detail_url})")
             continue
