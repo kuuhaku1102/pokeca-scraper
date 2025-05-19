@@ -1,0 +1,36 @@
+name: Scrape Clove Oripa
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */3 * * *'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install
+
+      - name: Run Clove Oripa scraper
+        env:
+          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+        run: python clove_oripa_scraper.py
+
+      - name: Upload page debug HTML
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clove_oripa_page_debug
+          path: clove_oripa_page_debug.html
