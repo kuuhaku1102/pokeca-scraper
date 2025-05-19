@@ -61,6 +61,9 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(2000)
             page.wait_for_selector("div.white-box img", timeout=60000)
+        try:
+            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_selector("div.white-box", timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             browser.close()
@@ -78,6 +81,7 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
                     const image =
                         img.getAttribute('data-src') ||
                         img.getAttribute('src') || '';
+                    const image = img.getAttribute('src') || '';
                     const url = link.getAttribute('href') || '';
                     const ptEl = box.querySelector('span.coin-area');
                     const pt = ptEl ? ptEl.textContent.trim() : '';
