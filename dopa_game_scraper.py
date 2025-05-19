@@ -16,10 +16,8 @@ SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 GACHA_CONTAINER_SELECTOR = "div.css-1flrjkp"  # ガチャ一覧全体
 GACHA_LINK_SELECTOR = "a.css-4g6ai3"          # 各ガチャへのリンク
 IMAGE_SELECTOR = "img.chakra-image"           # サムネイル画像
-PT_SELECTOR = "p.chakra-text"                 # PT表示テキスト
 
 def save_credentials() -> str:
-    """GSHEET_JSONをデコードして認証ファイルとして保存"""
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
         raise RuntimeError("GSHEET_JSON environment variable is missing")
@@ -28,7 +26,6 @@ def save_credentials() -> str:
     return "credentials.json"
 
 def get_sheet():
-    """Googleスプレッドシートの 'その他' シートを返す"""
     creds_path = save_credentials()
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -42,7 +39,6 @@ def get_sheet():
     return spreadsheet.worksheet(SHEET_NAME)
 
 def fetch_existing_urls(sheet) -> set:
-    """既存URL（3列目）をsetで取得"""
     records = sheet.get_all_values()
     url_set = set()
     for row in records[1:]:
@@ -51,12 +47,11 @@ def fetch_existing_urls(sheet) -> set:
     return url_set
 
 def extract_pt(text: str) -> str:
-    """'123PT' などのテキストから数字部分を抽出"""
-    m = re.search(r"(\d+(?:,\d+)*)", text)
-    return m.group(1) if m else text.strip()
+    """テキストから'123PT'などの数字（カンマ区切り含む）を抽出"""
+    m = re.search(r"(\d{2,}(?:,\d+)*)", text)
+    return m.group(1) if m else ""
 
 def scrape_items(existing_urls: set) -> List[List[str]]:
-    """Playwrightでdopa-game.jpをスクレイピング"""
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -65,11 +60,6 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("body", timeout=60000)
-            # HTML内容プリントでCloudflare/認証壁調査
-            html_content = page.content()
-            print("========= HTML内容抜粋 =========")
-            print(html_content[:2000])
-            print("===============================")
             page.wait_for_selector(GACHA_CONTAINER_SELECTOR, timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
@@ -100,9 +90,18 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                     if txt:
                         title = txt
 
-                pt_tag = a.query_selector(PT_SELECTOR)
-                pt_text = pt_tag.inner_text().strip() if pt_tag else ""
-                pt_value = extract_pt(pt_text)
+                # === PT取得ロジック（親div→祖先divまで見る）===
+                pt_value = ""
+                parent_div = a.evaluate_handle("node => node.parentElement")
+                if parent_div:
+                    parent_text = parent_div.inner_text().replace("\n", " ")
+                    pt_value = extract_pt(parent_text)
+                if not pt_value:
+                    # さらに1つ上の祖先まで調べる
+                    grandparent_div = a.evaluate_handle("node => node.parentElement ? node.parentElement.parentElement : null")
+                    if grandparent_div:
+                        gp_text = grandparent_div.inner_text().replace("\n", " ")
+                        pt_value = extract_pt(gp_text)
 
                 rows.append([title, image_url, detail_url, pt_value])
                 existing_urls.add(detail_url)
