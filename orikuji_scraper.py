@@ -1,52 +1,7 @@
-import os
-import base64
-from typing import List
-from urllib.parse import urljoin, urlparse
-
-import gspread
-from google.oauth2.service_account import Credentials
-from playwright.sync_api import sync_playwright
-
-BASE_URL = "https://orikuji.com/"
-SHEET_NAME = "その他"
-SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-
-def save_credentials() -> str:
-    encoded = os.environ.get("GSHEET_JSON", "")
-    if not encoded:
-        raise RuntimeError("GSHEET_JSON environment variable is missing")
-    with open("credentials.json", "w") as f:
-        f.write(base64.b64decode(encoded).decode("utf-8"))
-    return "credentials.json"
-
-def get_sheet():
-    creds_path = save_credentials()
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
-    client = gspread.authorize(creds)
-    if not SPREADSHEET_URL:
-        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
-    spreadsheet = client.open_by_url(SPREADSHEET_URL)
-    return spreadsheet.worksheet(SHEET_NAME)
-
-def fetch_existing_url_paths(sheet) -> set:
-    """シート内のURLカラムを 'パス部分だけ' でset化"""
-    records = sheet.get_all_values()
-    paths = set()
-    for row in records[1:]:
-        if len(row) >= 3:
-            u = row[2].strip()
-            if u:
-                parsed = urlparse(u)
-                paths.add(parsed.path)
-    return paths
-
 def scrape_orikuji(existing_paths: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
+        # headless=False なら画面で確認できる
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         print("🔍 orikuji.com スクレイピング開始...")
@@ -54,14 +9,18 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
 
-            # 無限スクロールで全ガチャをロード
+            # 強化版: すべてのwhite-boxを順番にscrollIntoView
             def scroll_to_load_all(page, selector="div.white-box", max_tries=30):
                 prev_count = 0
                 for i in range(max_tries):
-                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    page.wait_for_timeout(1200)
-                    elems = page.query_selector_all(selector)
-                    curr_count = len(elems)
+                    boxes = page.query_selector_all(selector)
+                    for box in boxes:
+                        try:
+                            box.scroll_into_view_if_needed()
+                            page.wait_for_timeout(150)
+                        except Exception:
+                            pass
+                    curr_count = len(page.query_selector_all(selector))
                     if curr_count == prev_count:
                         break
                     prev_count = curr_count
@@ -125,19 +84,3 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
         existing_paths.add(path)
 
     return rows
-
-def main() -> None:
-    sheet = get_sheet()
-    existing_paths = fetch_existing_url_paths(sheet)
-    rows = scrape_orikuji(existing_paths)
-    if not rows:
-        print("📭 新規データなし")
-        return
-    try:
-        sheet.append_rows(rows, value_input_option="USER_ENTERED")
-        print(f"📥 {len(rows)} 件追記完了")
-    except Exception as exc:
-        print(f"❌ 書き込みエラー: {exc}")
-
-if __name__ == "__main__":
-    main()
