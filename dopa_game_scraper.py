@@ -19,7 +19,6 @@ GACHA_LINK_SELECTOR = "a.css-4g6ai3"          # 各ガチャへのリンク
 IMAGE_SELECTOR = "img.chakra-image"           # サムネイル画像
 PT_SELECTOR = "p.chakra-text"                 # PT表示テキスト
 
-
 def save_credentials() -> str:
     """GSHEET_JSONをデコードして認証ファイルとして保存"""
     encoded = os.environ.get("GSHEET_JSON", "")
@@ -28,7 +27,6 @@ def save_credentials() -> str:
     with open("credentials.json", "w") as f:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
-
 
 def get_sheet():
     """Googleスプレッドシートの 'その他' シートを返す"""
@@ -44,7 +42,6 @@ def get_sheet():
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
-
 def fetch_existing_urls(sheet) -> set:
     """既存URL（3列目）をsetで取得"""
     records = sheet.get_all_values()
@@ -54,29 +51,33 @@ def fetch_existing_urls(sheet) -> set:
             url_set.add(row[2].strip())
     return url_set
 
-
 def extract_pt(text: str) -> str:
     """'123PT' などのテキストから数字部分を抽出"""
     m = re.search(r"(\d+(?:,\d+)*)", text)
     return m.group(1) if m else text.strip()
 
-
 def scrape_items(existing_urls: set) -> List[List[str]]:
     """Playwrightでdopa-game.jpをスクレイピング"""
     rows: List[List[str]] = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        # headless=Falseで画面表示（デバッグしやすい）
+        browser = p.chromium.launch(headless=False, args=["--no-sandbox"])
+        # User-Agent偽装でbot対策回避
+        page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         print("🔍 dopa-game.jp スクレイピング開始...")
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_selector("body", timeout=60000)
+            # HTMLの内容をprint（Cloudflare対策などでガチャリストが表示されているかデバッグ用）
+            print("========= HTML内容抜粋 =========")
+            print(page.content()[:2000])  # 先頭2000文字だけ表示
+            print("===============================")
             page.wait_for_selector(GACHA_CONTAINER_SELECTOR, timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             browser.close()
             return rows
 
-        # div.css-1flrjkp 内の a.css-4g6ai3 を全て取得
         anchors = page.query_selector_all(f"{GACHA_CONTAINER_SELECTOR} {GACHA_LINK_SELECTOR}")
         print(f"検出したガチャ数: {len(anchors)}")
         for a in anchors:
@@ -108,12 +109,10 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                 rows.append([title, image_url, detail_url, pt_value])
                 existing_urls.add(detail_url)
             except Exception as exc:
-                # 要素取得失敗時はスキップ
                 print(f"⚠ 取得スキップ: {exc}")
                 continue
         browser.close()
     return rows
-
 
 def main() -> None:
     sheet = get_sheet()
@@ -127,7 +126,6 @@ def main() -> None:
         print(f"📥 {len(rows)} 件追記完了")
     except Exception as exc:
         print(f"❌ スプレッドシート書き込み失敗: {exc}")
-
 
 if __name__ == "__main__":
     main()
