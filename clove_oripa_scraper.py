@@ -1,7 +1,8 @@
 import os
 import base64
+import re
 from typing import List
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, unquote
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -30,7 +31,8 @@ def get_sheet():
     return spreadsheet.worksheet(SHEET_NAME)
 
 def normalize_url(url: str) -> str:
-    """クエリパラメータ・末尾スラッシュ除去した絶対URLに正規化"""
+    if not url:
+        return ""
     if url.startswith("/"):
         url = urljoin("https://oripa.clove.jp", url)
     parts = urlparse(url)
@@ -45,7 +47,7 @@ def fetch_existing_urls(sheet) -> set:
             if u:
                 norm = normalize_url(u)
                 urls.add(norm)
-    print("既存URLリスト:", urls)  # デバッグ用
+    print("既存URLリスト:", urls)
     return urls
 
 def scrape_items(existing_urls: set) -> List[List[str]]:
@@ -75,27 +77,27 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                 document.querySelectorAll('div.css-k3cv9u').forEach(box => {
                     const img = box.querySelector('img');
                     const title = img ? (img.getAttribute('alt') || '').trim() : 'noname';
-                    const image = img ? (img.src || img.getAttribute('src') || '') : '';
-                    let url = '';
-                    // imgの親を遡ってaタグを取得
-                    if (img) {
-                        let current = img.parentElement;
-                        while (current && !url) {
-                            if (current.tagName && current.tagName.toLowerCase() === 'a' && current.href) {
-                                url = current.href;
-                                break;
-                            }
-                            current = current.parentElement;
-                        }
+                    let img_src = img ? img.getAttribute('src') : '';
+                    let image = img_src;
+                    if (img_src && img_src.startsWith('/_next/image') && img_src.includes('url=')) {
+                        const match = img_src.match(/url=([^&]+)/);
+                        if (match) image = decodeURIComponent(match[1]);
                     }
-                    if (!url) {
-                        // div.css-k3cv9u直下のaタグ
-                        const directLink = box.querySelector('a[href]');
-                        if (directLink) url = directLink.href;
-                    }
-                    const ptEl = box.querySelector('p.chakra-text');
-                    const pt = ptEl ? ptEl.textContent.trim() : '';
-                    results.push({ title, image, url, pt });
+                    // アイテムIDは画像URLから抜き出す
+                    let itemId = "";
+                    const m = image.match(/\\/items\\/([a-z0-9]+)\\.png/);
+                    if (m) itemId = m[1];
+                    // 詳細URL生成
+                    let url = itemId ? `https://oripa.clove.jp/oripa/${itemId}` : "";
+                    // ポイントや残数
+                    let pt = "";
+                    // コイン数など
+                    const coinEl = box.querySelector('div.css-13pczcl p.chakra-text');
+                    if (coinEl) pt = coinEl.textContent.trim();
+                    // 残り個数
+                    const leftEl = box.querySelector('p.chakra-text.css-m646o3');
+                    let left = leftEl ? leftEl.textContent.trim() : '';
+                    results.push({ title, image, url, pt, left });
                 });
                 return results;
             }
@@ -108,22 +110,22 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         image_url = item.get("image", "")
         detail_url = item.get("url", "")
         pt_text = item.get("pt", "")
+        left_text = item.get("left", "")
 
-        if detail_url.startswith("/"):
-            detail_url = urljoin("https://oripa.clove.jp", detail_url)
         detail_url = normalize_url(detail_url)
-        if image_url.startswith("/"):
+        if image_url and image_url.startswith("/"):
             image_url = urljoin("https://oripa.clove.jp", image_url)
 
         print(f"取得詳細URL: '{detail_url}'")
-        if not detail_url or detail_url == "https://oripa.clove.jp/oripa/All":
-            print(f"⚠️ URLが空または一覧URL: {title}")
+        if not detail_url or detail_url in [":", "https://oripa.clove.jp/oripa/All"]:
+            print(f"⚠️ URLが空または異常: {title}")
             continue
 
         if detail_url in existing_urls:
             print(f"⏭ スキップ（重複）: {title} ({detail_url})")
             continue
 
+        # 必要に応じて left_textも入れる: rows.append([title, image_url, detail_url, pt_text, left_text])
         rows.append([title, image_url, detail_url, pt_text])
         existing_urls.add(detail_url)
 
