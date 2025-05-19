@@ -1,13 +1,11 @@
-selenium
-webdriver-manager
 beautifulsoup4
 gspread
 gspread_dataframe
+google-auth
 oauth2client
-pymysql
 pandas
 playwright
-gspread
-google-auth
-beautifulsoup4
+pymysql
 requests
+selenium
+webdriver-manager
