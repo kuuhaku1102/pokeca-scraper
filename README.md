@@ -114,3 +114,19 @@ python orikuji_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_orikuji.yml` runs this scraper automatically.
+
+## Dopa Game Scraper
+
+The `dopa_game_scraper.py` script collects gacha information from [dopa-game.jp](https://dopa-game.jp/). It uses Playwright to fetch the list page and extracts the title, thumbnail URL, detail page link and PT value. New entries are appended to the `その他` sheet, skipping rows with a duplicate detail URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python dopa_game_scraper.py
+```
+
+The workflow `.github/workflows/scrape_dopa_game.yml` runs this scraper automatically.
+
