@@ -54,6 +54,13 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         print("🔍 orikuji.com スクレイピング開始...")
+
+        try:
+            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            # スクロールしてLazyLoad画像を読み込み
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(2000)
+            page.wait_for_selector("div.white-box img", timeout=60000)
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("div.white-box", timeout=60000)
@@ -71,6 +78,9 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
                     const img = box.querySelector('img');
                     if (!link || !img) return;
                     const title = img.getAttribute('alt') || 'noname';
+                    const image =
+                        img.getAttribute('data-src') ||
+                        img.getAttribute('src') || '';
                     const image = img.getAttribute('src') || '';
                     const url = link.getAttribute('href') || '';
                     const ptEl = box.querySelector('span.coin-area');
