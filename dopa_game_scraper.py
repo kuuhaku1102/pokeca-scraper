@@ -13,7 +13,6 @@ BASE_URL = "https://dopa-game.jp/"
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
-# gachaリストを囲むdivと個々のリンクaタグのセレクタ
 GACHA_CONTAINER_SELECTOR = "div.css-1flrjkp"  # ガチャ一覧全体
 GACHA_LINK_SELECTOR = "a.css-4g6ai3"          # 各ガチャへのリンク
 IMAGE_SELECTOR = "img.chakra-image"           # サムネイル画像
@@ -60,17 +59,16 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
     """Playwrightでdopa-game.jpをスクレイピング"""
     rows: List[List[str]] = []
     with sync_playwright() as p:
-        # headless=Falseで画面表示（デバッグしやすい）
-        browser = p.chromium.launch(headless=False, args=["--no-sandbox"])
-        # User-Agent偽装でbot対策回避
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         print("🔍 dopa-game.jp スクレイピング開始...")
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("body", timeout=60000)
-            # HTMLの内容をprint（Cloudflare対策などでガチャリストが表示されているかデバッグ用）
+            # HTML内容プリントでCloudflare/認証壁調査
+            html_content = page.content()
             print("========= HTML内容抜粋 =========")
-            print(page.content()[:2000])  # 先頭2000文字だけ表示
+            print(html_content[:2000])
             print("===============================")
             page.wait_for_selector(GACHA_CONTAINER_SELECTOR, timeout=60000)
         except Exception as exc:
