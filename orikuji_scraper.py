@@ -95,6 +95,9 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
                 }
                 """
             )
+            print(f"取得したitems件数: {len(items)}")
+            for item in items:
+                print(f"item url: {item.get('url', '')}")
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             browser.close()
@@ -107,14 +110,13 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
         title = item.get("title", "noname").strip() or "noname"
         pt_text = item.get("pt", "").strip()
 
-        # フルURL化
         if detail_url.startswith("/"):
             detail_url = urljoin(BASE_URL, detail_url)
         if image_url.startswith("/"):
             image_url = urljoin(BASE_URL, image_url)
 
-        # URLのパス部分で重複判定
         path = urlparse(detail_url).path
+        print(f"追加判定: {title} | path: {path} | 重複: {path in existing_paths}")
         if path in existing_paths:
             print(f"⏭ スキップ（重複）: {title}")
             continue
