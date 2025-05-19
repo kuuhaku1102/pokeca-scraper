@@ -13,7 +13,6 @@ SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
 
 def save_credentials() -> str:
-    """Decode GSHEET_JSON env and save to credentials.json."""
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
         raise RuntimeError("GSHEET_JSON environment variable is missing")
@@ -23,7 +22,6 @@ def save_credentials() -> str:
 
 
 def get_sheet():
-    """Authorize gspread and return the 'その他' worksheet."""
     creds_path = save_credentials()
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -38,7 +36,6 @@ def get_sheet():
 
 
 def fetch_existing_urls(sheet) -> set:
-    """Return a set of already stored detail URLs."""
     records = sheet.get_all_values()
     urls = set()
     for row in records[1:]:
@@ -48,7 +45,6 @@ def fetch_existing_urls(sheet) -> set:
 
 
 def scrape_orikuji(existing_urls: set) -> List[List[str]]:
-    """Scrape orikuji.com and return rows for new gacha items."""
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -57,21 +53,24 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
 
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            # スクロールしてLazyLoad画像を読み込み
+            # LazyLoad対策: 2回スクロール
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(2000)
+            page.evaluate("window.scrollTo(0, 0)")
+            page.wait_for_timeout(1000)
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(2000)
             page.wait_for_selector("div.white-box img", timeout=60000)
 
-            # ここからデータ取得（コイン画像を除外）
             items = page.evaluate(
                 """
                 () => {
                     const results = [];
                     document.querySelectorAll('div.white-box').forEach(box => {
                         const link = box.querySelector('a[href*="/gacha/"]');
-                        const img = box.querySelector('img');
+                        const img = box.querySelector('div.image-container img');
                         if (!link || !img) return;
-                        // コイン画像を除外
+
                         const imgSrc = img.getAttribute('data-src') || img.getAttribute('src') || '';
                         if (
                             imgSrc.includes('/img/coin.png') ||
