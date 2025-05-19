@@ -62,7 +62,7 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
             page.wait_for_timeout(2000)
             page.wait_for_selector("div.white-box img", timeout=60000)
 
-            # ここからデータ取得
+            # ここからデータ取得（コイン画像を除外）
             items = page.evaluate(
                 """
                 () => {
@@ -71,10 +71,15 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
                         const link = box.querySelector('a[href*="/gacha/"]');
                         const img = box.querySelector('img');
                         if (!link || !img) return;
+                        // コイン画像を除外
+                        const imgSrc = img.getAttribute('data-src') || img.getAttribute('src') || '';
+                        if (
+                            imgSrc.includes('/img/coin.png') ||
+                            imgSrc.includes('/coin/lb_coin_')
+                        ) return;
+
                         const title = img.getAttribute('alt') || 'noname';
-                        const image =
-                            img.getAttribute('data-src') ||
-                            img.getAttribute('src') || '';
+                        const image = imgSrc;
                         const url = link.getAttribute('href') || '';
                         const ptEl = box.querySelector('span.coin-area');
                         const pt = ptEl ? ptEl.textContent.trim() : '';
