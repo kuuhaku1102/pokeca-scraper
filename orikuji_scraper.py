@@ -1,7 +1,7 @@
 import os
 import base64
 from typing import List
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -11,7 +11,6 @@ BASE_URL = "https://orikuji.com/"
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
-
 def save_credentials() -> str:
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
@@ -19,7 +18,6 @@ def save_credentials() -> str:
     with open("credentials.json", "w") as f:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
-
 
 def get_sheet():
     creds_path = save_credentials()
@@ -34,17 +32,19 @@ def get_sheet():
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
-
-def fetch_existing_urls(sheet) -> set:
+def fetch_existing_url_paths(sheet) -> set:
+    """シート内のURLカラムを 'パス部分だけ' でset化"""
     records = sheet.get_all_values()
-    urls = set()
+    paths = set()
     for row in records[1:]:
         if len(row) >= 3:
-            urls.add(row[2].strip())
-    return urls
+            u = row[2].strip()
+            if u:
+                parsed = urlparse(u)
+                paths.add(parsed.path)
+    return paths
 
-
-def scrape_orikuji(existing_urls: set) -> List[List[str]]:
+def scrape_orikuji(existing_paths: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -54,7 +54,7 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
 
-            # --- 無限スクロールで全ガチャをロード ---
+            # 無限スクロールで全ガチャをロード
             def scroll_to_load_all(page, selector="div.white-box", max_tries=30):
                 prev_count = 0
                 for i in range(max_tries):
@@ -107,25 +107,27 @@ def scrape_orikuji(existing_urls: set) -> List[List[str]]:
         title = item.get("title", "noname").strip() or "noname"
         pt_text = item.get("pt", "").strip()
 
+        # フルURL化
         if detail_url.startswith("/"):
             detail_url = urljoin(BASE_URL, detail_url)
         if image_url.startswith("/"):
             image_url = urljoin(BASE_URL, image_url)
 
-        if detail_url in existing_urls:
+        # URLのパス部分で重複判定
+        path = urlparse(detail_url).path
+        if path in existing_paths:
             print(f"⏭ スキップ（重複）: {title}")
             continue
 
         rows.append([title, image_url, detail_url, pt_text])
-        existing_urls.add(detail_url)
+        existing_paths.add(path)
 
     return rows
 
-
 def main() -> None:
     sheet = get_sheet()
-    existing_urls = fetch_existing_urls(sheet)
-    rows = scrape_orikuji(existing_urls)
+    existing_paths = fetch_existing_url_paths(sheet)
+    rows = scrape_orikuji(existing_paths)
     if not rows:
         print("📭 新規データなし")
         return
@@ -134,7 +136,6 @@ def main() -> None:
         print(f"📥 {len(rows)} 件追記完了")
     except Exception as exc:
         print(f"❌ 書き込みエラー: {exc}")
-
 
 if __name__ == "__main__":
     main()
