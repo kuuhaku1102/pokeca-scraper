@@ -79,6 +79,9 @@ def scrape_torenet(existing_urls: set) -> List[List[str]]:
             () => {
                 const results = [];
                 document.querySelectorAll('.packList__item').forEach(item => {
+                    const attrTitle = item.getAttribute('data-pack-name') || '';
+                    const titleEl = item.querySelector('.packList__name');
+                    const title = attrTitle || (titleEl ? titleEl.textContent.trim() : '');
                     const titleEl = item.querySelector('.packList__name');
                     const title = titleEl ? titleEl.textContent.trim() : '';
                     const img = item.querySelector('img');
@@ -98,6 +101,13 @@ def scrape_torenet(existing_urls: set) -> List[List[str]]:
                         url = `/pack/${packId}`;
                     } else if (packName) {
                         url = `/pack/${packName}`;
+                    }
+                    const ptEl = item.querySelector('.packList__price, .packList__pt-txt, [class*="pt"]');
+                    let pt = '';
+                    if (ptEl) {
+                        const text = ptEl.textContent.replace(/\s+/g, '');
+                        const m = text.match(/(\d+)/);
+                        if (m) pt = m[1];
                     }
                     const ptEl = item.querySelector('.packList__price');
                     const pt = ptEl ? ptEl.textContent.replace(/\s+/g, '') : '';
