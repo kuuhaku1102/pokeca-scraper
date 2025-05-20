@@ -16,6 +16,7 @@ from playwright.sync_api import sync_playwright
 # ================================================================
 
 BASE_URL = "https://torenet.com/user/packList"
+DETAIL_URL_FORMAT = "https://torenet.com/pack/{}"  # Constructed from data-pack-id
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
@@ -81,6 +82,8 @@ def scrape_torenet(existing_urls: set) -> List[List[str]]:
                     const attrTitle = item.getAttribute('data-pack-name') || '';
                     const titleEl = item.querySelector('.packList__name');
                     const title = attrTitle || (titleEl ? titleEl.textContent.trim() : '');
+                    const titleEl = item.querySelector('.packList__name');
+                    const title = titleEl ? titleEl.textContent.trim() : '';
                     const img = item.querySelector('img');
                     let image = '';
                     if (img) {
@@ -106,6 +109,8 @@ def scrape_torenet(existing_urls: set) -> List[List[str]]:
                         const m = text.match(/(\d+)/);
                         if (m) pt = m[1];
                     }
+                    const ptEl = item.querySelector('.packList__price');
+                    const pt = ptEl ? ptEl.textContent.replace(/\s+/g, '') : '';
                     results.push({ title, image, url, pt });
                 });
                 return results;
