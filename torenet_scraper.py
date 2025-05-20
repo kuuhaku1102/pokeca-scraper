@@ -79,38 +79,35 @@ def scrape_torenet(existing_urls: set) -> List[List[str]]:
             () => {
                 const results = [];
                 document.querySelectorAll('.packList__item').forEach(item => {
-                    const attrTitle = item.getAttribute('data-pack-name') || '';
-                    const titleEl = item.querySelector('.packList__name');
-                    const title = attrTitle || (titleEl ? titleEl.textContent.trim() : '');
-                    const titleEl = item.querySelector('.packList__name');
-                    const title = titleEl ? titleEl.textContent.trim() : '';
-                    const img = item.querySelector('img');
+                    // タイトル
+                    const title = item.getAttribute('data-pack-name') || '';
+                    // 画像URL（srcset優先で一番大きい画像）
                     let image = '';
+                    const img = item.querySelector('img');
                     if (img) {
-                        image = img.getAttribute('src') || '';
                         const srcset = img.getAttribute('srcset');
                         if (srcset) {
+                            // srcset="url1 1x, url2 2x" の最後を取得
                             const parts = srcset.split(',').map(p => p.trim().split(' ')[0]);
                             if (parts.length) image = parts[parts.length - 1];
+                        } else {
+                            image = img.getAttribute('src') || '';
                         }
                     }
+                    // 詳細URL
                     const packId = item.getAttribute('data-pack-id');
-                    const packName = item.getAttribute('data-pack-name');
                     let url = '';
                     if (packId) {
                         url = `/pack/${packId}`;
-                    } else if (packName) {
-                        url = `/pack/${packName}`;
                     }
-                    const ptEl = item.querySelector('.packList__price, .packList__pt-txt, [class*="pt"]');
+                    // PT（数値のみ）
                     let pt = '';
+                    const ptEl = item.querySelector('.packList__pt-txt');
                     if (ptEl) {
-                        const text = ptEl.textContent.replace(/\s+/g, '');
+                        const text = ptEl.textContent.replace(/,/g, '').trim();
                         const m = text.match(/(\d+)/);
                         if (m) pt = m[1];
                     }
-                    const ptEl = item.querySelector('.packList__price');
-                    const pt = ptEl ? ptEl.textContent.replace(/\s+/g, '') : '';
                     results.push({ title, image, url, pt });
                 });
                 return results;
