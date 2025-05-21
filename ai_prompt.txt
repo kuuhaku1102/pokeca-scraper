@@ -1,0 +1,58 @@
+The following Python script, `moshoripa_scraper.py`, is designed to scrape data from the website moshoripa.com and append new findings to a specified Google Sheet.
+
+**Objective:**
+The primary goal of this script is to automate the collection of product information (specifically "gacha" items) from moshoripa.com. It identifies items, extracts relevant details, and then adds any newly found items to a Google Spreadsheet, ensuring no duplicate entries based on the item's detail URL.
+
+**Target URL:**
+The script targets the main page of the website: `https://moshoripa.com/`
+
+**Data to Scrape per Item:**
+For each item found on the page (typically represented by a "gacha card" element), the script extracts the following information:
+1.  **Title**: The name or title of the item. This is primarily sourced from the text content of an `a.gacha-link` element. If this is empty or insufficient, it falls back to the `alt` text of the item's image (`img` tag within `a.gacha-link`). A default "No title" is used if neither is found.
+2.  **Image URL**: The direct URL to the item's image. This is extracted from the `src` attribute of an `img` tag found within `a.gacha-link`.
+3.  **Detail URL**: The URL leading to the item's specific detail page. This is extracted from the `href` attribute of the `a.gacha-link` element.
+4.  **PT (Points)**: The point value associated with the item. This is extracted from the text content of a `span.font-size-xl` element, which is itself within a `div.gacha-price` element. Defaults to '0' if not found.
+
+**Key Technologies Used:**
+*   **Python**: The core programming language.
+*   **Playwright**: For web browser automation. It's used to navigate to the target URL, interact with the page (wait for elements), and execute JavaScript to extract data. It runs in headless mode.
+*   **gspread**: To interact with the Google Sheets API. This library handles authentication and allows the script to read from and append data to a Google Spreadsheet.
+*   **google-auth**: For handling Google API authentication using service account credentials.
+
+**Core Logic:**
+1.  **Google Sheets Connection & Existing Data Retrieval**:
+    *   The script first establishes a connection to Google Sheets using service account credentials (provided via an environment variable).
+    *   It opens a specific worksheet named "その他" within the designated spreadsheet (URL also from an environment variable).
+    *   It reads all existing data from this sheet, specifically collecting all "Detail URLs" from the third column. These URLs are normalized using the `strip_query_params` helper function and stored in a set for efficient duplicate checking.
+2.  **Web Scraping with Playwright**:
+    *   The script launches a headless Chromium browser using Playwright.
+    *   It navigates to `https://moshoripa.com/` and waits for the page to become idle and for the gacha card elements (`div.homes-gacha-card`) to be present.
+    *   Data extraction is performed using `page.evaluate()`, which executes JavaScript code in the browser's context to select elements and retrieve their attributes (text, href, src). Selectors used are specific to the structure of moshoripa.com (e.g., `a.gacha-link`, `div.gacha-price span.font-size-xl`).
+    *   Relative URLs (for images and detail pages) extracted from the site are converted into absolute URLs by prepending `https://moshoripa.com`.
+3.  **Data Processing & Duplicate Filtering**:
+    *   A helper function, `strip_query_params(url: str) -> str`, is used to remove query parameters from URLs. This ensures that URLs differing only by query strings are treated as identical for duplicate checking purposes.
+    *   The script iterates through the scraped items. For each item, its `detail_url` is normalized and checked against the set of `existing_detail_urls` fetched from the Google Sheet.
+4.  **Appending New Data to Google Sheets**:
+    *   Only items whose normalized `detail_url` is not found in the `existing_detail_urls` set are considered new.
+    *   These new items (formatted as a list: `[Title, Image URL, Detail URL, PT]`) are collected.
+    *   If there are new items to add, they are appended as new rows to the "その他" worksheet using `sheet.append_rows()` with `value_input_option='USER_ENTERED'`.
+
+**Environment Variables Required for Execution:**
+*   `GSHEET_JSON`: A JSON string containing the Google Service Account credentials. This string might be base64 encoded, and the script attempts to decode it if necessary.
+*   `SPREADSHEET_URL`: The full URL of the Google Spreadsheet where data will be stored and read from.
+
+**Output:**
+The script's primary output is the addition of new data rows to the "その他" sheet in the Google Spreadsheet specified by `SPREADSHEET_URL`. Each row contains the [Title, Image URL, Detail URL, PT] for a newly scraped item. The script also prints logs to standard output indicating its progress, errors, and the number of items added or skipped.
+
+**Error Handling:**
+The script incorporates error handling for various potential issues:
+*   Missing or invalid environment variables (`GSHEET_JSON`, `SPREADSHEET_URL`).
+*   Errors during Google Sheets connection (e.g., spreadsheet not found, worksheet not found, authentication issues).
+*   Errors during Playwright operations (e.g., navigation timeouts, elements not found).
+*   If an error occurs during Playwright scraping, the script attempts to save the current page content to `moshoripa_debug.html` for debugging purposes.
+*   It also includes checks for malformed or missing data during the scraping and processing phases.
+
+**Execution Context:**
+This script is designed to be run in automated environments, such as GitHub Actions. It uses a headless browser, relies on environment variables for configuration, and includes logging suitable for such contexts. The inclusion of `--no-sandbox` for the Chromium launch arguments is also indicative of this.
+
+This prompt should provide a comprehensive overview for an AI to understand, modify, or explain the `moshoripa_scraper.py` script.
