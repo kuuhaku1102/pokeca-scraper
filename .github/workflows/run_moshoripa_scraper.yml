@@ -1,0 +1,37 @@
+name: Run Moshoripa Scraper
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'  # Runs every 3 hours
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  scrape_moshoripa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Using v4 as it's the latest
+
+      - name: Set up Python
+        uses: actions/setup-python@v4 # Using v4
+        with:
+          python-version: '3.11' # Consistent with other newer workflows
+
+      - name: Install Python dependencies and Playwright browsers
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run Moshoripa scraper
+        env:
+          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+        run: python moshoripa_scraper.py
+
+      - name: Upload page debug HTML on failure
+        if: failure()
+        uses: actions/upload-artifact@v4 # Using v4
+        with:
+          name: moshoripa_page_debug
+          path: moshoripa_debug.html # Matches the debug file name in the python script
