@@ -130,3 +130,19 @@ python dopa_game_scraper.py
 
 The workflow `.github/workflows/scrape_dopa_game.yml` runs this scraper automatically.
 
+
+## Ram Oripa Scraper
+
+The `ram_oripa_scraper.py` script gathers gacha information from [ram-oripa.com](https://ram-oripa.com/). It uses Playwright to scrape the top page and collects the title, image URL, detail page URL and PT value. New entries are appended to the `その他` sheet, skipping duplicates.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python ram_oripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_ram_oripa.yml` runs this scraper automatically.
+
