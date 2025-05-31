@@ -68,21 +68,24 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             """
             () => {
                 const results = [];
-                document.querySelectorAll('img.gacha-img').forEach(img => {
-                    const a = img.closest('a');
-                    if (!a) return;
-                    const detail_url = a.href || '';
+                // カードごとにループ
+                document.querySelectorAll('.card-href').forEach(card => {
+                    const a = card.querySelector('a');
+                    const img = card.querySelector('img.gacha-img');
+                    const ptEl = card.querySelector('.fw-bold.px-2');
+                    const detail_url = a ? a.href : '';
+                    const image = img ? img.src : '';
                     let title = '';
-                    const nameEl = a.querySelector('.gacha-name') || a.querySelector('.gacha-title');
-                    if (nameEl) {
-                        title = nameEl.textContent.trim();
+                    // タイトル取得用の要素がある場合はそちらから、なければaltや空
+                    if (img && img.alt) {
+                        title = img.alt;
+                    } else {
+                        // 例：ガチャタイトル要素を追加で取得したい場合はここで取得
+                        const t1 = card.querySelector('.gacha-name, .gacha-title');
+                        title = t1 ? t1.textContent.trim() : '';
                     }
-                    if (!title) {
-                        title = img.getAttribute('alt') || '';
-                    }
-                    const priceEl = a.querySelector('.gacha-price') || a.querySelector('.gacha-pt');
-                    const pt = priceEl ? priceEl.textContent.trim() : '';
-                    results.push({title, image: img.src, url: detail_url, pt});
+                    const pt = ptEl ? ptEl.textContent.trim() : '';
+                    results.push({title, image, url: detail_url, pt});
                 });
                 return results;
             }
