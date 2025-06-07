@@ -7,22 +7,9 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-
-def scroll_to_bottom(page, max_scrolls=30, pause_ms=500):
-    """Scroll down to load dynamic content."""
-    last_height = 0
-    for _ in range(max_scrolls):
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(pause_ms)
-        height = page.evaluate("document.body.scrollHeight")
-        if height == last_height:
-            break
-        last_height = height
-
 BASE_URL = "https://ichica.co/"
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-
 
 def save_credentials() -> str:
     encoded = os.environ.get("GSHEET_JSON", "")
@@ -31,7 +18,6 @@ def save_credentials() -> str:
     with open("credentials.json", "w") as f:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
-
 
 def get_sheet():
     creds_path = save_credentials()
@@ -46,33 +32,32 @@ def get_sheet():
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
-
 def fetch_existing_urls(sheet) -> set:
-    """Return set of detail URLs already in the sheet (3rd column)."""
     records = sheet.get_all_values()
     url_set = set()
-    for row in records[1:]:
+    for row in records:
         if len(row) >= 3:
             url_set.add(row[2].strip())
     return url_set
-
 
 def normalize_url(url: str) -> str:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
-
 def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     html = ""
     with sync_playwright() as p:
+        # デバッグ時はheadless=Falseで可視化も
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
         print("🔍 ichica.co スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
-            scroll_to_bottom(page)
-            page.wait_for_selector("div.bubble-element.group-item", timeout=60000)
+            page.goto(BASE_URL, timeout=120000)  # wait_until省略
+            # 雑に8秒待つ
+            page.wait_for_timeout(8000)
+            # タイムアウト値長めに
+            page.wait_for_selector("div.bubble-element.group-item", timeout=120000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
@@ -80,17 +65,12 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             if html:
                 with open("ichica_debug.html", "w", encoding="utf-8") as f:
                     f.write(html)
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
-        print("🔍 ichica.co スクレイピング開始...")
-        try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector("div.bubble-element.group-item", timeout=60000)
-        except Exception as exc:
-            print(f"🛑 ページ読み込み失敗: {exc}")
-            browser.close()
             return rows
+
+        html = page.content()
+        # デバッグ用に保存
+        with open("ichica_debug.html", "w", encoding="utf-8") as f:
+            f.write(html)
 
         items = page.evaluate(
             """
@@ -106,7 +86,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                         url = a.href;
                     } else {
                         const onclick = card.getAttribute('onclick');
-                        const m = onclick && onclick.match(/window.open\('([^']+)'/);
+                        const m = onclick && onclick.match(/window.open\\('([^']+)'/);
                         if (m) url = m[1];
                     }
                     const ptEl = card.querySelector('div.cmgaAy');
@@ -117,7 +97,6 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             }
             """
         )
-        html = page.content()
         browser.close()
 
     for item in items:
@@ -138,11 +117,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         rows.append([title, image_url, detail_url, pt_value])
         existing_urls.add(norm_url)
 
-    if html:
-        with open("ichica_debug.html", "w", encoding="utf-8") as f:
-            f.write(html)
     return rows
-
 
 def main() -> None:
     sheet = get_sheet()
@@ -156,7 +131,6 @@ def main() -> None:
         print(f"📥 {len(rows)} 件追記完了")
     except Exception as exc:
         print(f"❌ スプレッドシート書き込み失敗: {exc}")
-
 
 if __name__ == "__main__":
     main()
