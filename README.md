@@ -146,3 +146,18 @@ python ram_oripa_scraper.py
 
 The workflow `.github/workflows/scrape_ram_oripa.yml` runs this scraper automatically.
 
+
+## Toreca Rainbow Oripa Scraper
+
+The `oripa_toreca_rainbow_scraper.py` script collects gacha data from [oripa.toreca-rainbow.com](https://oripa.toreca-rainbow.com/). It uses Playwright to grab the title, image URL, detail page URL and PT value from the top page and appends new rows to the `その他` sheet. Existing URLs are skipped to avoid duplicates.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python oripa_toreca_rainbow_scraper.py
+```
+
+The workflow `.github/workflows/scrape_toreca_rainbow.yml` runs this scraper automatically.
