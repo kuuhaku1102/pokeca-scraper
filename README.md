@@ -161,3 +161,18 @@ python oripa_toreca_rainbow_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_toreca_rainbow.yml` runs this scraper automatically.
+
+## Ichica Scraper
+
+The `ichica_scraper.py` script collects gacha information from [ichica.co](https://ichica.co/). It uses Playwright to gather the title, image URL, detail page URL and PT value from the main page. New rows are appended to the `その他` sheet, skipping entries with a duplicate URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python ichica_scraper.py
+```
+
+The workflow `.github/workflows/scrape_ichica.yml` runs this scraper automatically.
