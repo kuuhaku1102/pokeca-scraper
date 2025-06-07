@@ -1,5 +1,6 @@
 import os
 import base64
+import re
 from typing import List
 from urllib.parse import urljoin, urlparse
 
@@ -33,6 +34,7 @@ def get_sheet():
     return spreadsheet.worksheet(SHEET_NAME)
 
 def fetch_existing_urls(sheet) -> set:
+    """Return set of detail URLs already in the sheet (3rd column)."""
     records = sheet.get_all_values()
     url_set = set()
     for row in records:
@@ -46,77 +48,54 @@ def normalize_url(url: str) -> str:
 
 def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
-    html = ""
     with sync_playwright() as p:
-        # デバッグ時はheadless=Falseで可視化も
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
         print("🔍 ichica.co スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=120000)  # wait_until省略
-            # 雑に8秒待つ
-            page.wait_for_timeout(8000)
-            # タイムアウト値長めに
-            page.wait_for_selector("div.bubble-element.group-item", timeout=120000)
+            page.goto(BASE_URL, timeout=120000)
+            page.wait_for_timeout(7000)  # JS描画待機
+            items = page.query_selector_all('div.clickable-element.bubble-element.Group.cmgaAm')
+            print(f"🟢 検出数: {len(items)}")
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
+            with open("ichica_debug.html", "w", encoding="utf-8") as f:
+                f.write(html)
             browser.close()
-            if html:
-                with open("ichica_debug.html", "w", encoding="utf-8") as f:
-                    f.write(html)
             return rows
 
-        html = page.content()
-        # デバッグ用に保存
-        with open("ichica_debug.html", "w", encoding="utf-8") as f:
-            f.write(html)
+        for card in items:
+            # メイン画像
+            img = card.query_selector('div.bubble-element.Image.cmgaBaP img')
+            image_url = img.get_attribute('src') if img else ""
+            title = img.get_attribute('alt') if (img and img.get_attribute('alt')) else (image_url.split("/")[-1] if image_url else "noname")
+            # PT
+            pt_el = card.query_selector('div.bubble-element.Text.cmgaAy')
+            pt = pt_el.inner_text().strip() if pt_el else ""
+            # 詳細URL（progress-barのidから抽出）
+            progress_div = card.query_selector('div.progress-bar')
+            detail_id = None
+            if progress_div:
+                progress_id = progress_div.get_attribute('id')
+                m = re.search(r'dynamic-progress-bar([0-9a-z]+)', progress_id or "")
+                if m:
+                    detail_id = m.group(1)
+            detail_url = (
+                f"https://ichica.co/pack/{detail_id}?section=main%20list&sort=recommended&category=Pokemon&lotteryprice=&lotterycard={detail_id}&lotterytab=all"
+                if detail_id else ""
+            )
 
-        items = page.evaluate(
-            """
-            () => {
-                const results = [];
-                document.querySelectorAll('div.bubble-element.group-item').forEach(card => {
-                    const img = card.querySelector('img');
-                    const image = img ? img.src : '';
-                    const title = img ? (img.alt || img.title || '').trim() : '';
-                    let url = '';
-                    const a = card.querySelector('a[href]');
-                    if (a) {
-                        url = a.href;
-                    } else {
-                        const onclick = card.getAttribute('onclick');
-                        const m = onclick && onclick.match(/window.open\\('([^']+)'/);
-                        if (m) url = m[1];
-                    }
-                    const ptEl = card.querySelector('div.cmgaAy');
-                    const pt = ptEl ? ptEl.textContent.trim() : '';
-                    results.push({ title, image, url, pt });
-                });
-                return results;
-            }
-            """
-        )
+            # 必須要素が無い場合はskip
+            if not (title and image_url and detail_url):
+                continue
+            # 重複skip
+            if detail_url in existing_urls:
+                continue
+
+            rows.append([title, image_url, detail_url, pt])
+            existing_urls.add(detail_url)
         browser.close()
-
-    for item in items:
-        detail_url = item.get("url", "").strip()
-        image_url = item.get("image", "").strip()
-        title = item.get("title", "noname") or "noname"
-        pt_value = item.get("pt", "").strip()
-
-        if detail_url.startswith("/"):
-            detail_url = urljoin(BASE_URL, detail_url)
-        if image_url.startswith("/"):
-            image_url = urljoin(BASE_URL, image_url)
-
-        norm_url = normalize_url(detail_url)
-        if norm_url in existing_urls or not norm_url:
-            continue
-
-        rows.append([title, image_url, detail_url, pt_value])
-        existing_urls.add(norm_url)
-
     return rows
 
 def main() -> None:
