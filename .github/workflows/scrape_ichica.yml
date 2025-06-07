@@ -31,3 +31,11 @@ jobs:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
           SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
         run: python ichica_scraper.py
+
+
+      - name: Upload debug HTML
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ichica_debug
+          path: ichica_debug.html

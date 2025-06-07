@@ -52,6 +52,21 @@ def normalize_url(url: str) -> str:
 
 def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
+    html = ""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        print("🔍 ichica.co スクレイピング開始...")
+        try:
+            page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
+            page.wait_for_selector("div.bubble-element.group-item", timeout=120000)
+        except Exception as exc:
+            print(f"🛑 ページ読み込み失敗: {exc}")
+            html = page.content()
+            browser.close()
+            if html:
+                with open("ichica_debug.html", "w", encoding="utf-8") as f:
+                    f.write(html)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
@@ -89,6 +104,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             }
             """
         )
+        html = page.content()
         browser.close()
 
     for item in items:
@@ -109,6 +125,9 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         rows.append([title, image_url, detail_url, pt_value])
         existing_urls.add(norm_url)
 
+    if html:
+        with open("ichica_debug.html", "w", encoding="utf-8") as f:
+            f.write(html)
     return rows
 
 
