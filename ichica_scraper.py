@@ -67,6 +67,16 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             if html:
                 with open("ichica_debug.html", "w", encoding="utf-8") as f:
                     f.write(html)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
+        print("🔍 ichica.co スクレイピング開始...")
+        try:
+            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_selector("div.bubble-element.group-item", timeout=60000)
+        except Exception as exc:
+            print(f"🛑 ページ読み込み失敗: {exc}")
+            browser.close()
             return rows
 
         items = page.evaluate(
