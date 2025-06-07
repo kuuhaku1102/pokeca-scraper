@@ -7,6 +7,18 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
+
+def scroll_to_bottom(page, max_scrolls=30, pause_ms=500):
+    """Scroll down to load dynamic content."""
+    last_height = 0
+    for _ in range(max_scrolls):
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(pause_ms)
+        height = page.evaluate("document.body.scrollHeight")
+        if height == last_height:
+            break
+        last_height = height
+
 BASE_URL = "https://ichica.co/"
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
@@ -59,7 +71,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         print("🔍 ichica.co スクレイピング開始...")
         try:
             page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
-            page.wait_for_selector("div.bubble-element.group-item", timeout=120000)
+            scroll_to_bottom(page)
+            page.wait_for_selector("div.bubble-element.group-item", timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
