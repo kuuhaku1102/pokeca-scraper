@@ -194,7 +194,7 @@ The workflow `.github/workflows/scrape_oripalette.yml` runs this scraper automat
 
 ## Smash High Scraper
 
-The `smash_high_scraper.py` script collects gacha information from [smash-high.co.jp](https://smash-high.co.jp/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+The `smash_high_scraper.py` script collects gacha information from [smash-high.co.jp](https://smash-high.co.jp/). It uses Playwright to scrape the top page and gathers the item title (from the image's `alt` attribute), image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
 
 Run locally:
 
