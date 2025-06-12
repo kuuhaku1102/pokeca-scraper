@@ -176,3 +176,18 @@ python ichica_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_ichica.yml` runs this scraper automatically.
+
+## Oripalette Scraper
+
+The `oripalette_scraper.py` script collects gacha information from [oripalette.jp](https://oripalette.jp/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python oripalette_scraper.py
+```
+
+The workflow `.github/workflows/scrape_oripalette.yml` runs this scraper automatically.
