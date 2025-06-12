@@ -47,15 +47,32 @@ def fetch_existing_urls(sheet) -> set:
     return urls
 
 
+def scroll_to_bottom(page, max_scrolls: int = 20, pause_ms: int = 500) -> None:
+    """Scroll page to the bottom to ensure lazy content is loaded."""
+    last_height = 0
+    for _ in range(max_scrolls):
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(pause_ms)
+        height = page.evaluate("document.body.scrollHeight")
+        if height == last_height:
+            break
+        last_height = height
+
+
 def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
         print("🔍 oripa.toreca-rainbow.com スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_selector("a[href^='/pack/']", timeout=60000)
+            scroll_to_bottom(page)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
