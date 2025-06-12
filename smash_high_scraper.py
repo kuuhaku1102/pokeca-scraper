@@ -52,7 +52,7 @@ def parse_items(page) -> List[dict]:
         () => {
             const results = [];
             document.querySelectorAll('div.rounded-lg.shadow-md a[href]').forEach(el => {
-                const img = el.querySelector('div.relative img');
+                const img = el.querySelector('div.relative.rounded-lg img');
                 const title = img ? (img.getAttribute('alt') || '').trim() : '';
                 const image = img ? (img.getAttribute('src') || '') : '';
                 const url = el.href;
