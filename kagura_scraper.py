@@ -103,6 +103,35 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                 }
                 return { title, image, url: a.href, pt };
             })
+            () => {
+                const results = [];
+                document.querySelectorAll('a[href*="/gacha/"]').forEach(a => {
+                    const card = a.querySelector('div.flex.flex-col.cursor-pointer') || a;
+                    let image = '';
+                    const bg = card.querySelector('div[style*="background-image"]');
+                    if (bg) {
+                        const style = bg.getAttribute('style') || '';
+                        const m = style.match(/background-image:\s*url\(['\"]?([^'\")]+)['\"]?\)/);
+                        if (m) image = m[1];
+                    }
+                    const img = card.querySelector('img');
+                    let title = '';
+                    if (img) {
+                        title = img.getAttribute('alt') || img.getAttribute('title') || '';
+                        if (!image) image = img.getAttribute('src') || img.getAttribute('data-src') || '';
+                    }
+                    if (!title) {
+                        title = (card.textContent || '').trim().split('\n')[0].trim();
+                    }
+                    let pt = '';
+                    const ptSpan = card.querySelector('span.text-base');
+                    if (ptSpan) {
+                        pt = ptSpan.textContent.replace(/,/g, '').trim();
+                    }
+                    results.push({ title, image, url: a.href, pt });
+                });
+                return results;
+            }
             """
         )
 
