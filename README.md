@@ -206,3 +206,18 @@ python smash_high_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_smash_high.yml` runs this scraper automatically.
+
+## YK Oripa Scraper
+
+The `yk_oripa_scraper.py` script collects gacha information from [yk-oripa.com](https://yk-oripa.com/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python yk_oripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_yk_oripa.yml` runs this scraper automatically.
