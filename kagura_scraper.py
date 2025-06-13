@@ -53,9 +53,21 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         print("🔍 kagura-tcg.com スクレイピング開始...")
+
+        def scroll_to_load_all(max_tries: int = 20, step: int = 800) -> None:
+            prev_height = 0
+            for _ in range(max_tries):
+                page.evaluate(f"window.scrollBy(0, {step});")
+                page.wait_for_timeout(500)
+                curr = page.evaluate("document.documentElement.scrollHeight")
+                if curr == prev_height:
+                    break
+                prev_height = curr
+
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector("a[href*='/gacha/']", timeout=60000)
+            page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=60000)
+            scroll_to_load_all()
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
