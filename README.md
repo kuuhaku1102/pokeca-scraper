@@ -221,3 +221,18 @@ python yk_oripa_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_yk_oripa.yml` runs this scraper automatically.
+
+## Toreca.io Scraper
+
+The `toreca_io_scraper.py` script collects gacha information from [toreca.io](https://toreca.io/). It uses Playwright to scrape the main page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python toreca_io_scraper.py
+```
+
+The workflow `.github/workflows/scrape_toreca_io.yml` runs this scraper automatically.
