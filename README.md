@@ -251,3 +251,18 @@ python dokodemooripa_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_dokodemooripa.yml` runs this scraper automatically.
+
+## Alpha Oripa Scraper
+
+The `alpha_oripa_scraper.py` script collects gacha information from [alpha-oripa.com](https://alpha-oripa.com/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python alpha_oripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_alpha_oripa.yml` runs this scraper automatically.
