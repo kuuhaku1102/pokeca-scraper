@@ -82,33 +82,44 @@ def scrape_tweets(limit=10) -> List[List[str]]:
     rows = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        context = browser.new_context(user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile Safari/604.1")
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        )
         page = context.new_page()
         print(f"🔍 検索URL：{SEARCH_URL}")
         page.goto(SEARCH_URL, timeout=60000)
-        time.sleep(5)
 
-        # スクロールして読み込み促進
-        for _ in range(2):
-            page.mouse.wheel(0, 1000)
-            time.sleep(2)
+        try:
+            page.wait_for_selector("article", timeout=15000)
+            time.sleep(3)
 
-        tweets = page.locator("article").all()
-        print(f"👀 ツイート検出数: {len(tweets)}")
+            for _ in range(3):
+                page.mouse.wheel(0, 1500)
+                time.sleep(2)
 
-        for tweet in tweets[:limit]:
-            try:
-                text = tweet.inner_text()
-                lines = text.split('\n')
-                if len(lines) < 2:
-                    continue
-                username = lines[0].lstrip("@").strip()
-                content = " ".join(lines[1:]).strip()
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"📝 {username}: {content}")
-                rows.append([timestamp, username, content])
-            except Exception as e:
-                print(f"⚠️ ツイート解析失敗: {e}")
+            page.screenshot(path="debug.png")  # デバッグ用スクショ保存
+
+            tweets = page.locator("article").all()
+            print(f"👀 ツイート検出数: {len(tweets)}")
+
+            for tweet in tweets[:limit]:
+                try:
+                    text = tweet.inner_text()
+                    lines = text.split('\n')
+                    if len(lines) < 2:
+                        continue
+                    username = lines[0].lstrip("@").strip()
+                    content = " ".join(lines[1:]).strip()
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(f"📝 {username}: {content}")
+                    rows.append([timestamp, username, content])
+                except Exception as e:
+                    print(f"⚠️ ツイート解析失敗: {e}")
+
+        except Exception as e:
+            print(f"❌ ツイート読み込み失敗: {e}")
+            page.screenshot(path="debug_error.png")
+
         browser.close()
     return rows
 
