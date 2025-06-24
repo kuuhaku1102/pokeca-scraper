@@ -9,3 +9,4 @@ pymysql
 requests
 selenium
 webdriver-manager
+snscrape
