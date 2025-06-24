@@ -18,14 +18,20 @@ from google.oauth2.service_account import Credentials
 SEARCH_KEYWORDS = [
     "スパークオリパ 当たり",
     "スパークオリパ 神引き",
-    "DOPA当選報告"
+    "DOPA当たり"
 ]
 
+# 拡張インスタンスリスト（信頼性は時期により変動）
 NITTER_INSTANCES = [
     "https://nitter.net",
-    "https://nitter.privacydev.net",
-    "https://nitter.pussthecat.org",
-    "https://nitter.kavin.rocks"
+    "https://nitter.snopyta.org",
+    "https://nitter.fdn.fr",
+    "https://nitter.1d4.us",
+    "https://nitter.moomoo.me",
+    "https://nitter.bus-hit.me",
+    "https://nitter.projectsegfau.lt",
+    "https://nitter.in.projectsegfau.lt",
+    "https://nitter.poast.org"
 ]
 
 SHEET_NAME = "POST"
@@ -84,7 +90,7 @@ def scrape_nitter(keyword: str, limit: int = 10) -> List[List[str]]:
         url = build_nitter_search_url(base_url, keyword)
         print(f"🔍 検索: {url}")
         try:
-            res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+            res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
             if res.status_code == 429:
                 print(f"⚠️ {base_url} - 429 Too Many Requests")
                 continue
@@ -113,7 +119,7 @@ def scrape_nitter(keyword: str, limit: int = 10) -> List[List[str]]:
             return rows
         else:
             print(f"⚠️ {base_url} にデータが見つかりませんでした")
-        time.sleep(3)
+        time.sleep(5)
     return []
 
 # ---------------------------
@@ -131,7 +137,8 @@ def main():
         for row in rows:
             if row[2] not in existing:
                 all_rows.append(row)
-        time.sleep(10)  # 過剰リクエスト回避
+        print(f"⌛ 検索後のウェイト...")
+        time.sleep(600)  # 各検索語で10分間隔
 
     print(f"🌟 新規追加対象: {len(all_rows)}")
     if not all_rows:
