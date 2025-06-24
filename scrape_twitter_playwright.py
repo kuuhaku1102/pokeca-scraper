@@ -85,8 +85,17 @@ def scrape_tweets_from_dom(limit=10) -> List[List[str]]:
 
         print(f"🔍 検索URL：{SEARCH_URL}")
         page.goto(SEARCH_URL, timeout=60000)
-        page.wait_for_timeout(5000)
 
+        try:
+            page.wait_for_selector("article", timeout=30000)
+        except Exception as e:
+            print(f"❌ 'article'要素が見つかりませんでした: {e}")
+            page.screenshot(path="debug_article_timeout.png")
+            with open("debug_article.html", "w", encoding="utf-8") as f:
+                f.write(page.content())
+            return []
+
+        page.wait_for_timeout(3000)
         for _ in range(3):
             page.mouse.wheel(0, 1500)
             time.sleep(2)
