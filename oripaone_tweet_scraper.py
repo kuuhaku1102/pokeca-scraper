@@ -8,7 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-SEARCH_URL = "https://twitter.com/search?q=オリパワン%20当たり報告&f=live"
+SEARCH_URL = "https://twitter.com/search?q=オリパワン%20当たり&f=live"
 SHEET_NAME = "POST"  # ←必要に応じて"その他"などと変更してください
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
