@@ -1,15 +1,16 @@
-name: Scrape Oripaone Tweets
+name: Scrape Twitter (Playwright)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'  # 6時間ごとに実行
+    - cron: '0 */6 * * *'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -19,18 +20,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Install CA certificates
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ca-certificates
-          sudo update-ca-certificates
+          pip install playwright
+          playwright install chromium
 
       - name: Run scraper
-        env:
-          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-          REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt  # これがSSL対策の肝
-        run: python oripaone_tweet_scraper.py
+        run: python scrape_twitter_playwright.py
