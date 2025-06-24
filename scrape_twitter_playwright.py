@@ -13,14 +13,13 @@ from playwright.sync_api import sync_playwright
 # 🔧 設定
 # ---------------------------
 
-# 検索したい複数のキーワードを OR 条件で指定（スペースは自動エンコード）
 SEARCH_KEYWORDS = [
-    "オリパワン 当たり",
-    "オリパワン 神引き",
-    "オリパワン UR"
+    "スパークオリパ 当たり",
+    "スパークオリパ 神引き",
+    "DOPA当選報告"
 ]
 
-SHEET_NAME = "POST"  # 任意のシート名に変更可
+SHEET_NAME = "POST"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
 
@@ -85,10 +84,11 @@ def scrape_tweets(limit=10) -> List[List[str]]:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         context = browser.new_context(user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile Safari/604.1")
         page = context.new_page()
+        print(f"🔍 検索URL：{SEARCH_URL}")
         page.goto(SEARCH_URL, timeout=60000)
         time.sleep(5)
 
-        # スクロールして読み込み促進（必要なら）
+        # スクロールして読み込み促進
         for _ in range(2):
             page.mouse.wheel(0, 1000)
             time.sleep(2)
@@ -105,6 +105,7 @@ def scrape_tweets(limit=10) -> List[List[str]]:
                 username = lines[0].lstrip("@").strip()
                 content = " ".join(lines[1:]).strip()
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"📝 {username}: {content}")
                 rows.append([timestamp, username, content])
             except Exception as e:
                 print(f"⚠️ ツイート解析失敗: {e}")
@@ -121,10 +122,13 @@ def main():
     ensure_headers(sheet)
     existing = fetch_existing_texts(sheet)
     tweets = scrape_tweets()
+    print(f"🎯 検出されたツイート数: {len(tweets)}")
+
     new_rows = [row for row in tweets if row[2] not in existing]
+    print(f"🧹 新規追加対象数: {len(new_rows)}")
 
     if not new_rows:
-        print("📭 新規データなし")
+        print("📭 No new data to append")
         return
 
     try:
