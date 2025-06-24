@@ -123,7 +123,7 @@ def scrape_tweets_from_xhr(limit=10) -> List[List[str]]:
         user_id = tweet.get("user_id_str")
         username = users_data.get(user_id, {}).get("screen_name", "unknown")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"📝 @{username}: {text}")
+        print(f"🖍️ @{username}: {text}")
         rows.append([timestamp, f"@{username}", text])
         count += 1
 
@@ -141,10 +141,10 @@ def main():
     ensure_headers(sheet)
     existing = fetch_existing_texts(sheet)
     tweets = scrape_tweets_from_xhr()
-    print(f"🎯 検出されたツイート数: {len(tweets)}")
+    print(f"🌟 検出されたツイート数: {len(tweets)}")
 
     new_rows = [row for row in tweets if row[2] not in existing]
-    print(f"🧹 新規追加対象数: {len(new_rows)}")
+    print(f"🪛 新規追加対象数: {len(new_rows)}")
 
     if not new_rows:
         print("📭 No new data to append")
@@ -152,7 +152,7 @@ def main():
 
     try:
         sheet.append_rows(new_rows, value_input_option="USER_ENTERED")
-        print(f"📥 {len(new_rows)} 件追記完了")
+        print(f"📅 {len(new_rows)} 件追記完了")
     except Exception as e:
         print(f"❌ スプレッドシート書き込み失敗: {e}")
 
