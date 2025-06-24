@@ -3,15 +3,42 @@ import base64
 import time
 from datetime import datetime
 from typing import List
+from urllib.parse import quote
 
 import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-SEARCH_URL = "https://twitter.com/search?q=オリパワン%20当たり&f=live"
-SHEET_NAME = "POST"  # ←必要に応じて"その他"などと変更してください
+# ---------------------------
+# 🔧 設定
+# ---------------------------
+
+# 検索したい複数のキーワードを OR 条件で指定（スペースは自動エンコード）
+SEARCH_KEYWORDS = [
+    "オリパワン 当たり",
+    "オリパワン 神引き",
+    "オリパワン UR"
+]
+
+SHEET_NAME = "POST"  # 任意のシート名に変更可
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
+
+# ---------------------------
+# 🔗 検索URLを生成
+# ---------------------------
+
+def build_search_url(keywords: List[str]) -> str:
+    query = " OR ".join(keywords)
+    encoded = quote(query)
+    return f"https://twitter.com/search?q={encoded}&f=live"
+
+SEARCH_URL = build_search_url(SEARCH_KEYWORDS)
+
+
+# ---------------------------
+# 📄 スプレッドシート関連
+# ---------------------------
 
 def save_credentials() -> str:
     encoded = os.environ.get("GSHEET_JSON", "")
@@ -48,7 +75,11 @@ def fetch_existing_texts(sheet) -> set:
     return set(row[2] for row in values if len(row) >= 3)
 
 
-def scrape_tweets(limit=5) -> List[List[str]]:
+# ---------------------------
+# 🐦 Twitterスクレイピング
+# ---------------------------
+
+def scrape_tweets(limit=10) -> List[List[str]]:
     rows = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -57,7 +88,14 @@ def scrape_tweets(limit=5) -> List[List[str]]:
         page.goto(SEARCH_URL, timeout=60000)
         time.sleep(5)
 
+        # スクロールして読み込み促進（必要なら）
+        for _ in range(2):
+            page.mouse.wheel(0, 1000)
+            time.sleep(2)
+
         tweets = page.locator("article").all()
+        print(f"👀 ツイート検出数: {len(tweets)}")
+
         for tweet in tweets[:limit]:
             try:
                 text = tweet.inner_text()
@@ -73,6 +111,10 @@ def scrape_tweets(limit=5) -> List[List[str]]:
         browser.close()
     return rows
 
+
+# ---------------------------
+# 🚀 メイン処理
+# ---------------------------
 
 def main():
     sheet = get_sheet()
