@@ -1,13 +1,14 @@
 import os
 import base64
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 from urllib.parse import quote
 
+import requests
+from bs4 import BeautifulSoup
 import gspread
 from google.oauth2.service_account import Credentials
-from playwright.sync_api import sync_playwright
 
 # ---------------------------
 # 🔧 設定
@@ -18,17 +19,10 @@ SEARCH_KEYWORDS = [
     "スパークオリパ 神引き",
     "DOPA当選報告"
 ]
-
+NITTER_BASE_URL = "https://nitter.net"
 SHEET_NAME = "POST"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
-
-def build_search_url(keywords: List[str]) -> str:
-    query = " OR ".join(keywords)
-    encoded = quote(query)
-    return f"https://twitter.com/search?q={encoded}&f=live"
-
-SEARCH_URL = build_search_url(SEARCH_KEYWORDS)
 
 # ---------------------------
 # 📄 Google Sheets 連携
@@ -59,7 +53,7 @@ def get_sheet():
 
 def ensure_headers(sheet):
     headers = sheet.row_values(1)
-    expected = ["日時", "ユーザー名", "本文"]
+    expected = ["日時", "ユーザー名", "本文", "画像URL"]
     if headers != expected:
         sheet.insert_row(expected, index=1)
 
@@ -69,81 +63,63 @@ def fetch_existing_texts(sheet) -> set:
     return set(row[2] for row in values if len(row) >= 3)
 
 # ---------------------------
-# 🐦 Twitter DOMベーススクレイピング処理
+# 💼 Nitter HTML スクレイピング
 # ---------------------------
 
-def scrape_tweets_from_dom(limit=10) -> List[List[str]]:
+def build_nitter_search_url(keyword: str) -> str:
+    q = quote(keyword)
+    return f"{NITTER_BASE_URL}/search?f=tweets&q={q}"
+
+
+def scrape_nitter(keyword: str, limit: int = 10) -> List[List[str]]:
+    url = build_nitter_search_url(keyword)
+    print(f"🔍 検索: {url}")
+    res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+    res.raise_for_status()
+    soup = BeautifulSoup(res.text, "html.parser")
+    items = soup.select("div.timeline-item")
+
     rows = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-            locale="ja-JP",
-            viewport={"width": 1366, "height": 768}
-        )
-        page = context.new_page()
-
-        print(f"🔍 検索URL：{SEARCH_URL}")
-        page.goto(SEARCH_URL, timeout=60000)
-
+    for item in items[:limit]:
         try:
-            page.wait_for_selector("article", timeout=30000)
+            user = item.select_one("a.username").text.strip()
+            text = item.select_one(".tweet-content").text.strip().replace("\n", " ")
+            time_tag = item.select_one("span.tweet-date > a")
+            date_str = time_tag["title"] if time_tag else datetime.now().isoformat()
+            date_obj = datetime.fromisoformat(date_str)
+            img_el = item.select_one(".attachment.image > a")
+            img_url = NITTER_BASE_URL + img_el["href"] if img_el else ""
+            rows.append([date_obj.strftime("%Y-%m-%d %H:%M:%S"), user, text, img_url])
         except Exception as e:
-            print(f"❌ 'article'要素が見つかりませんでした: {e}")
-            page.screenshot(path="debug_article_timeout.png")
-            with open("debug_article.html", "w", encoding="utf-8") as f:
-                f.write(page.content())
-            return []
-
-        page.wait_for_timeout(3000)
-        for _ in range(3):
-            page.mouse.wheel(0, 1500)
-            time.sleep(2)
-
-        tweets = page.locator("article").all()
-        print(f"👀 ツイート検出数: {len(tweets)}")
-
-        for tweet in tweets[:limit]:
-            try:
-                username_el = tweet.locator("a[href^='/' i]").first
-                username_href = username_el.get_attribute("href")
-                username = username_href.split("/")[1] if username_href else "unknown"
-
-                text_el = tweet.locator("div[data-testid='tweetText']").first
-                content = text_el.inner_text().strip() if text_el else ""
-
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"📝 @{username}: {content}")
-                rows.append([timestamp, f"@{username}", content])
-            except Exception as e:
-                print(f"⚠️ ツイート解析失敗: {e}")
-
-        browser.close()
+            print(f"⚠️ 解析失敗: {e}")
     return rows
 
 # ---------------------------
-# 🚀 メイン処理
+# ▶ メイン
 # ---------------------------
 
 def main():
     sheet = get_sheet()
     ensure_headers(sheet)
     existing = fetch_existing_texts(sheet)
-    tweets = scrape_tweets_from_dom()
-    print(f"🎯 検出されたツイート数: {len(tweets)}")
 
-    new_rows = [row for row in tweets if row[2] not in existing]
-    print(f"🪛 新規追加対象数: {len(new_rows)}")
+    all_rows = []
+    for keyword in SEARCH_KEYWORDS:
+        rows = scrape_nitter(keyword, limit=10)
+        for row in rows:
+            if row[2] not in existing:
+                all_rows.append(row)
 
-    if not new_rows:
+    print(f"🌟 新規追加対象: {len(all_rows)}")
+    if not all_rows:
         print("📭 No new data to append")
         return
 
     try:
-        sheet.append_rows(new_rows, value_input_option="USER_ENTERED")
-        print(f"📥 {len(new_rows)} 件追記完了")
+        sheet.append_rows(all_rows, value_input_option="USER_ENTERED")
+        print(f"📅 {len(all_rows)} 件追記完了")
     except Exception as e:
-        print(f"❌ スプレッドシート書き込み失敗: {e}")
+        print(f"❌ スプレッド書き込み失敗: {e}")
 
 
 if __name__ == "__main__":
