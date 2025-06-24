@@ -2,6 +2,11 @@ import os
 import base64
 from typing import List
 
+import certifi
+
+# Ensure snscrape uses an up-to-date certificate bundle
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+
 import gspread
 from google.oauth2.service_account import Credentials
 import snscrape.modules.twitter as sntwitter
@@ -38,7 +43,7 @@ def get_sheet():
 def ensure_headers(sheet, headers: List[str]):
     current = sheet.row_values(1)
     if current[: len(headers)] != headers:
-        sheet.update("A1", [headers])
+        sheet.update(values=[headers], range_name="A1")
 
 
 def fetch_existing_urls(sheet) -> set:
@@ -52,10 +57,13 @@ def fetch_existing_urls(sheet) -> set:
 
 def search_tweets(query: str, limit: int):
     tweets = []
-    for i, tweet in enumerate(sntwitter.TwitterSearchScraper(query).get_items()):
-        if i >= limit:
-            break
-        tweets.append(tweet)
+    try:
+        for i, tweet in enumerate(sntwitter.TwitterSearchScraper(query).get_items()):
+            if i >= limit:
+                break
+            tweets.append(tweet)
+    except Exception as exc:  # noqa: BLE001
+        print(f"🛑 Failed to fetch tweets: {exc}")
     return tweets
 
 
