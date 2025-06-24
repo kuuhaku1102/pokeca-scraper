@@ -3,7 +3,7 @@ name: Scrape Twitter (Playwright)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */6 * * *'  # 毎6時間ごとに実行
 
 jobs:
   scrape:
@@ -20,8 +20,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install playwright
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
           playwright install chromium
 
       - name: Run scraper
+        env:
+          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
         run: python scrape_twitter_playwright.py
