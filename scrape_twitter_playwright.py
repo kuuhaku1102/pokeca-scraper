@@ -23,10 +23,6 @@ SHEET_NAME = "POST"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
 
-# ---------------------------
-# 🔗 検索URLを生成
-# ---------------------------
-
 def build_search_url(keywords: List[str]) -> str:
     query = " OR ".join(keywords)
     encoded = quote(query)
@@ -34,9 +30,8 @@ def build_search_url(keywords: List[str]) -> str:
 
 SEARCH_URL = build_search_url(SEARCH_KEYWORDS)
 
-
 # ---------------------------
-# 📄 スプレッドシート関連
+# 📄 Google スプレッドシート連携
 # ---------------------------
 
 def save_credentials() -> str:
@@ -73,9 +68,8 @@ def fetch_existing_texts(sheet) -> set:
     values = sheet.get_all_values()[1:]
     return set(row[2] for row in values if len(row) >= 3)
 
-
 # ---------------------------
-# 🐦 Twitterスクレイピング
+# 🐦 Twitter スクレイピング処理
 # ---------------------------
 
 def scrape_tweets(limit=10) -> List[List[str]]:
@@ -83,36 +77,42 @@ def scrape_tweets(limit=10) -> List[List[str]]:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+            viewport={'width': 1280, 'height': 800}
         )
         page = context.new_page()
         print(f"🔍 検索URL：{SEARCH_URL}")
         page.goto(SEARCH_URL, timeout=60000)
 
         try:
-            page.wait_for_selector("article", timeout=15000)
+            page.wait_for_selector("article[data-testid='tweet']", timeout=30000)
             time.sleep(3)
 
+            # スクロールして読み込み促進
             for _ in range(3):
                 page.mouse.wheel(0, 1500)
                 time.sleep(2)
 
-            page.screenshot(path="debug.png")  # デバッグ用スクショ保存
+            # スクリーンショット保存（デバッグ用）
+            page.screenshot(path="debug.png")
 
-            tweets = page.locator("article").all()
+            tweets = page.locator("article[data-testid='tweet']").all()
             print(f"👀 ツイート検出数: {len(tweets)}")
 
             for tweet in tweets[:limit]:
                 try:
-                    text = tweet.inner_text()
-                    lines = text.split('\n')
-                    if len(lines) < 2:
-                        continue
-                    username = lines[0].lstrip("@").strip()
-                    content = " ".join(lines[1:]).strip()
+                    # ユーザー名の取得
+                    username_el = tweet.locator("a[href^='/'']").first
+                    username_href = username_el.get_attribute("href")
+                    username = username_href.split("/")[1] if username_href else "unknown"
+
+                    # 本文の取得
+                    text_el = tweet.locator("div[data-testid='tweetText']").first
+                    content = text_el.inner_text().strip() if text_el else ""
+
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    print(f"📝 {username}: {content}")
-                    rows.append([timestamp, username, content])
+                    print(f"📝 @{username}: {content}")
+                    rows.append([timestamp, f"@{username}", content])
                 except Exception as e:
                     print(f"⚠️ ツイート解析失敗: {e}")
 
@@ -122,7 +122,6 @@ def scrape_tweets(limit=10) -> List[List[str]]:
 
         browser.close()
     return rows
-
 
 # ---------------------------
 # 🚀 メイン処理
