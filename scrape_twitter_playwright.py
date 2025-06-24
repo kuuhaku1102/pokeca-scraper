@@ -1,7 +1,8 @@
 import os
 import base64
 import time
-from datetime import datetime, timedelta
+import random
+from datetime import datetime
 from typing import List
 from urllib.parse import quote
 
@@ -19,7 +20,14 @@ SEARCH_KEYWORDS = [
     "スパークオリパ 神引き",
     "DOPA当選報告"
 ]
-NITTER_BASE_URL = "https://nitter.net"
+
+NITTER_INSTANCES = [
+    "https://nitter.net",
+    "https://nitter.privacydev.net",
+    "https://nitter.pussthecat.org",
+    "https://nitter.kavin.rocks"
+]
+
 SHEET_NAME = "POST"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
@@ -66,33 +74,47 @@ def fetch_existing_texts(sheet) -> set:
 # 💼 Nitter HTML スクレイピング
 # ---------------------------
 
-def build_nitter_search_url(keyword: str) -> str:
+def build_nitter_search_url(base_url: str, keyword: str) -> str:
     q = quote(keyword)
-    return f"{NITTER_BASE_URL}/search?f=tweets&q={q}"
+    return f"{base_url}/search?f=tweets&q={q}"
 
 
 def scrape_nitter(keyword: str, limit: int = 10) -> List[List[str]]:
-    url = build_nitter_search_url(keyword)
-    print(f"🔍 検索: {url}")
-    res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-    res.raise_for_status()
-    soup = BeautifulSoup(res.text, "html.parser")
-    items = soup.select("div.timeline-item")
-
-    rows = []
-    for item in items[:limit]:
+    for base_url in random.sample(NITTER_INSTANCES, len(NITTER_INSTANCES)):
+        url = build_nitter_search_url(base_url, keyword)
+        print(f"🔍 検索: {url}")
         try:
-            user = item.select_one("a.username").text.strip()
-            text = item.select_one(".tweet-content").text.strip().replace("\n", " ")
-            time_tag = item.select_one("span.tweet-date > a")
-            date_str = time_tag["title"] if time_tag else datetime.now().isoformat()
-            date_obj = datetime.fromisoformat(date_str)
-            img_el = item.select_one(".attachment.image > a")
-            img_url = NITTER_BASE_URL + img_el["href"] if img_el else ""
-            rows.append([date_obj.strftime("%Y-%m-%d %H:%M:%S"), user, text, img_url])
+            res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+            if res.status_code == 429:
+                print(f"⚠️ {base_url} - 429 Too Many Requests")
+                continue
+            res.raise_for_status()
         except Exception as e:
-            print(f"⚠️ 解析失敗: {e}")
-    return rows
+            print(f"❌ {base_url} - 接続失敗: {e}")
+            continue
+
+        soup = BeautifulSoup(res.text, "html.parser")
+        items = soup.select("div.timeline-item")
+
+        rows = []
+        for item in items[:limit]:
+            try:
+                user = item.select_one("a.username").text.strip()
+                text = item.select_one(".tweet-content").text.strip().replace("\n", " ")
+                time_tag = item.select_one("span.tweet-date > a")
+                date_str = time_tag["title"] if time_tag and "title" in time_tag.attrs else datetime.now().isoformat()
+                date_obj = datetime.fromisoformat(date_str)
+                img_el = item.select_one(".attachment.image > a")
+                img_url = base_url + img_el["href"] if img_el else ""
+                rows.append([date_obj.strftime("%Y-%m-%d %H:%M:%S"), user, text, img_url])
+            except Exception as e:
+                print(f"⚠️ 解析失敗: {e}")
+        if rows:
+            return rows
+        else:
+            print(f"⚠️ {base_url} にデータが見つかりませんでした")
+        time.sleep(3)
+    return []
 
 # ---------------------------
 # ▶ メイン
@@ -109,6 +131,7 @@ def main():
         for row in rows:
             if row[2] not in existing:
                 all_rows.append(row)
+        time.sleep(10)  # 過剰リクエスト回避
 
     print(f"🌟 新規追加対象: {len(all_rows)}")
     if not all_rows:
