@@ -1,5 +1,6 @@
 import os
 import base64
+import json
 import time
 from datetime import datetime
 from typing import List
@@ -7,7 +8,7 @@ from urllib.parse import quote
 
 import gspread
 from google.oauth2.service_account import Credentials
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Response
 
 # ---------------------------
 # 🔧 設定
@@ -31,7 +32,7 @@ def build_search_url(keywords: List[str]) -> str:
 SEARCH_URL = build_search_url(SEARCH_KEYWORDS)
 
 # ---------------------------
-# 📄 Google スプレッドシート連携
+# 📄 Google Sheets 連携
 # ---------------------------
 
 def save_credentials() -> str:
@@ -69,59 +70,66 @@ def fetch_existing_texts(sheet) -> set:
     return set(row[2] for row in values if len(row) >= 3)
 
 # ---------------------------
-# 🐦 Twitter スクレイピング処理
+# 🐦 Twitter XHR 取得処理
 # ---------------------------
 
-def scrape_tweets(limit=10) -> List[List[str]]:
+def scrape_tweets_from_xhr(limit=10) -> List[List[str]]:
     rows = []
+    tweets_json: List[dict] = []
+
+    def capture_response(response: Response):
+        try:
+            if "Adaptive" in response.url and "SearchTimeline" in response.url:
+                json_data = response.json()
+                tweets_json.append(json_data)
+        except Exception as e:
+            print(f"⚠️ JSON取得失敗: {e}")
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
-            locale="ja-JP",
-            viewport={"width": 1366, "height": 768}
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            locale="ja-JP"
         )
         page = context.new_page()
+        page.on("response", capture_response)
+
         print(f"🔍 検索URL：{SEARCH_URL}")
         page.goto(SEARCH_URL, timeout=60000)
+        page.wait_for_timeout(8000)
+        for _ in range(3):
+            page.mouse.wheel(0, 1500)
+            time.sleep(2)
 
-        try:
-            # 表示はされなくても DOM にあればOKとする
-            page.wait_for_selector("article[data-testid='tweet']", state="attached", timeout=30000)
-            time.sleep(5)
-
-            for _ in range(3):
-                page.mouse.wheel(0, 1500)
-                time.sleep(2)
-
-            page.screenshot(path="debug.png")
-
-            tweets = page.locator("article[data-testid='tweet']").all()
-            print(f"👀 ツイート検出数: {len(tweets)}")
-
-            for tweet in tweets[:limit]:
-                try:
-                    username_el = tweet.locator("a[href^='/'']").first
-                    username_href = username_el.get_attribute("href")
-                    username = username_href.split("/")[1] if username_href else "unknown"
-
-                    text_el = tweet.locator("div[data-testid='tweetText']").first
-                    content = text_el.inner_text().strip() if text_el else ""
-
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    print(f"📝 @{username}: {content}")
-                    rows.append([timestamp, f"@{username}", content])
-                except Exception as e:
-                    print(f"⚠️ ツイート解析失敗: {e}")
-
-        except Exception as e:
-            print(f"❌ ツイート読み込み失敗: {e}")
-            page.screenshot(path="debug_error.png")
-            with open("debug_error.html", "w", encoding="utf-8") as f:
-                f.write(page.content())
-            return []
+        page.screenshot(path="xhr_debug.png")
 
         browser.close()
+
+    tweets_data = {}
+    users_data = {}
+
+    for data in tweets_json:
+        if "globalObjects" in data:
+            tweets_data.update(data["globalObjects"].get("tweets", {}))
+            users_data.update(data["globalObjects"].get("users", {}))
+
+    print(f"📦 取得ツイート数: {len(tweets_data)}")
+
+    count = 0
+    for tweet_id, tweet in tweets_data.items():
+        if count >= limit:
+            break
+        text = tweet.get("full_text", "").replace("\n", " ").strip()
+        user_id = tweet.get("user_id_str")
+        username = users_data.get(user_id, {}).get("screen_name", "unknown")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"📝 @{username}: {text}")
+        rows.append([timestamp, f"@{username}", text])
+        count += 1
+
+    with open("xhr_raw.json", "w", encoding="utf-8") as f:
+        json.dump(tweets_json, f, ensure_ascii=False, indent=2)
+
     return rows
 
 # ---------------------------
@@ -132,7 +140,7 @@ def main():
     sheet = get_sheet()
     ensure_headers(sheet)
     existing = fetch_existing_texts(sheet)
-    tweets = scrape_tweets()
+    tweets = scrape_tweets_from_xhr()
     print(f"🎯 検出されたツイート数: {len(tweets)}")
 
     new_rows = [row for row in tweets if row[2] not in existing]
