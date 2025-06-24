@@ -77,23 +77,23 @@ def scrape_tweets(limit=10) -> List[List[str]]:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-            viewport={'width': 1280, 'height': 800}
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
+            locale="ja-JP",
+            viewport={"width": 1366, "height": 768}
         )
         page = context.new_page()
         print(f"🔍 検索URL：{SEARCH_URL}")
         page.goto(SEARCH_URL, timeout=60000)
 
         try:
-            page.wait_for_selector("article[data-testid='tweet']", timeout=30000)
-            time.sleep(3)
+            # 表示はされなくても DOM にあればOKとする
+            page.wait_for_selector("article[data-testid='tweet']", state="attached", timeout=30000)
+            time.sleep(5)
 
-            # スクロールして読み込み促進
             for _ in range(3):
                 page.mouse.wheel(0, 1500)
                 time.sleep(2)
 
-            # スクリーンショット保存（デバッグ用）
             page.screenshot(path="debug.png")
 
             tweets = page.locator("article[data-testid='tweet']").all()
@@ -101,12 +101,10 @@ def scrape_tweets(limit=10) -> List[List[str]]:
 
             for tweet in tweets[:limit]:
                 try:
-                    # ユーザー名の取得
                     username_el = tweet.locator("a[href^='/'']").first
                     username_href = username_el.get_attribute("href")
                     username = username_href.split("/")[1] if username_href else "unknown"
 
-                    # 本文の取得
                     text_el = tweet.locator("div[data-testid='tweetText']").first
                     content = text_el.inner_text().strip() if text_el else ""
 
@@ -119,6 +117,9 @@ def scrape_tweets(limit=10) -> List[List[str]]:
         except Exception as e:
             print(f"❌ ツイート読み込み失敗: {e}")
             page.screenshot(path="debug_error.png")
+            with open("debug_error.html", "w", encoding="utf-8") as f:
+                f.write(page.content())
+            return []
 
         browser.close()
     return rows
