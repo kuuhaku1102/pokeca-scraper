@@ -281,3 +281,18 @@ python blackgacha_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_blackgacha.yml` runs this scraper automatically.
+
+## Torekazi Scraper
+
+The `torekazi_scraper.py` script collects gacha information from [torekazi.com](https://torekazi.com/). It uses Playwright to scrape the main page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python torekazi_scraper.py
+```
+
+The workflow `.github/workflows/scrape_torekazi.yml` runs this scraper automatically.
