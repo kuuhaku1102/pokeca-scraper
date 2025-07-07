@@ -11,7 +11,7 @@ BASE_URL = "https://dopa-game.jp/"
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
-BANNER_IMG_SELECTOR = "div.slick-slider img"
+BANNER_IMG_SELECTOR = "img.chakra-image"  # より正確なセレクターに変更
 
 
 def save_credentials() -> str:
@@ -52,16 +52,22 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         print("🔍 dopa-game.jp banner scraping...")
+        page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector(BANNER_IMG_SELECTOR, timeout=60000)
+            page.wait_for_selector(BANNER_IMG_SELECTOR, timeout=60000, state="visible")
         except Exception as exc:
             print(f"🛑 page load failed: {exc}")
+            with open("debug.html", "w", encoding="utf-8") as f:
+                f.write(page.content())
             browser.close()
             return rows
         imgs = page.query_selector_all(BANNER_IMG_SELECTOR)
         print(f"found {len(imgs)} banner images")
         for img in imgs:
+            # クローン要素はスキップ
+            if img.evaluate("el => el.closest('.slick-slide')?.classList.contains('slick-cloned')"):
+                continue
             src = (img.get_attribute("src") or "").strip()
             if not src:
                 continue
