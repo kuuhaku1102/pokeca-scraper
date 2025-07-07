@@ -69,22 +69,19 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
             page.wait_for_load_state("networkidle")
             time.sleep(2)
 
-            print("🌀 Scrolling to trigger lazy-load images")
-            for _ in range(5):
-                page.mouse.wheel(0, 500)
-                time.sleep(1.5)
+            print("🧠 Extracting banner images via JS evaluation")
+            banner_data = page.evaluate("""
+                () => {
+                    const imgs = Array.from(document.querySelectorAll('img.chakra-image'));
+                    return imgs.map(img => ({
+                        src: img.src,
+                        alt: img.alt || 'noname'
+                    }));
+                }
+            """)
 
-            print(f"🔍 Looking for selector: {BANNER_IMG_SELECTOR}")
-            MAX_RETRY = 10
-            for i in range(MAX_RETRY):
-                imgs = page.query_selector_all(BANNER_IMG_SELECTOR)
-                print(f"🕐 Retry {i+1}/{MAX_RETRY} - Found {len(imgs)} images")
-                if imgs:
-                    break
-                time.sleep(1)
-
-            if not imgs:
-                raise RuntimeError("❌ No banner images found")
+            if not banner_data:
+                raise RuntimeError("❌ No banner images extracted via JS")
 
         except Exception as exc:
             print(f"🛑 page load failed: {exc}")
@@ -94,15 +91,11 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
             browser.close()
             return rows
 
-        print(f"✅ Found {len(imgs)} banner images")
+        print(f"✅ Extracted {len(banner_data)} images via JS")
 
-        for img in imgs:
-            src = (img.get_attribute("src") or "").strip()
-            if not src:
-                continue
-            if src.startswith("/"):
-                src = urljoin(BASE_URL, src)
-            if src in existing_urls:
+        for item in banner_data:
+            src = item["src"].strip()
+            if not src or src in existing_urls:
                 continue
             rows.append([src, BASE_URL])
             existing_urls.add(src)
