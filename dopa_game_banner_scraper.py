@@ -11,7 +11,6 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "https://dopa-game.jp/"
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-
 BANNER_IMG_SELECTOR = "img.chakra-image"
 
 
@@ -57,13 +56,14 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            time.sleep(3)
+            time.sleep(2)
 
-            # ページ下部までスクロールして画像を描画させる
-            page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
-            time.sleep(3)
+            # 繰り返しスクロールでLazyLoadを強制発火
+            for _ in range(5):
+                page.mouse.wheel(0, 500)
+                time.sleep(1.5)
 
-            imgs = page.query_selector_all("img.chakra-image")
+            imgs = page.query_selector_all(BANNER_IMG_SELECTOR)
 
             if not imgs:
                 raise RuntimeError("No banner images found")
