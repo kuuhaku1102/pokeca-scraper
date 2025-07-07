@@ -12,7 +12,6 @@ BASE_URL = "https://dopa-game.jp/"
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
-# 正確なバナー画像のセレクター
 BANNER_IMG_SELECTOR = "img.chakra-image"
 
 
@@ -58,8 +57,17 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            time.sleep(5)  # JSや画像の描画猶予
-            page.wait_for_selector(BANNER_IMG_SELECTOR, timeout=60000, state="attached")
+            time.sleep(3)
+
+            # ページ下部までスクロールして画像を描画させる
+            page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
+            time.sleep(3)
+
+            imgs = page.query_selector_all("img.chakra-image")
+
+            if not imgs:
+                raise RuntimeError("No banner images found")
+
         except Exception as exc:
             print(f"🛑 page load failed: {exc}")
             with open("debug.html", "w", encoding="utf-8") as f:
@@ -67,7 +75,6 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
             browser.close()
             return rows
 
-        imgs = page.query_selector_all(BANNER_IMG_SELECTOR)
         print(f"✅ Found {len(imgs)} banner images")
 
         for img in imgs:
