@@ -1,6 +1,5 @@
 import os
 import base64
-import time
 from typing import List
 from urllib.parse import urljoin
 
@@ -67,7 +66,12 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
             print(f"🌐 Navigating to {BASE_URL}")
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            time.sleep(2)
+
+            print("⏳ Waiting for banner images to appear in DOM...")
+            page.wait_for_function(
+                """() => document.querySelectorAll('img.chakra-image').length > 0""",
+                timeout=10000
+            )
 
             print("🧠 Extracting banner images via JS evaluation")
             banner_data = page.evaluate("""
