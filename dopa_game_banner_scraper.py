@@ -61,21 +61,25 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        page = browser.new_page(
+            viewport={"width": 1280, "height": 800}
+        )
 
         try:
             print(f"🌐 Navigating to {BASE_URL}")
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            time.sleep(2)
+            time.sleep(1)
 
-            print("➡️ Advancing slider via .slick-next click")
-            for _ in range(5):
-                try:
-                    page.click(".slick-next")
-                except:
-                    pass  # ignore if not clickable yet
-                time.sleep(1)
+            # IntersectionObserverを発火させるために下にスクロール
+            print("🌀 Scrolling through slick-slider to trigger lazyload")
+            for i in range(5):
+                page.mouse.wheel(0, 500)
+                time.sleep(1.5)
+
+            # さらに slick-track の中にカーソルを移動させる
+            print("🎯 Forcing banner container to become visible via mouse movement")
+            page.hover("div.slick-slider")
 
             print("🧠 Extracting banner images via JS evaluation")
             banner_data = page.evaluate("""
