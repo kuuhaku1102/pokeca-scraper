@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 
 import gspread
 from google.oauth2.service_account import Credentials
+import time
 from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://god-traca.online/"
@@ -49,6 +50,22 @@ def fetch_existing_urls(sheet) -> set:
     return urls
 
 
+def wait_for_all_items(page) -> None:
+    """Scroll and wait until item count no longer increases."""
+    prev_count = 0
+    start_time = time.time()
+    while True:
+        count = page.locator(ITEM_SELECTOR).count()
+        if count > prev_count:
+            prev_count = count
+            start_time = time.time()
+        else:
+            if time.time() - start_time > 10:
+                break
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(1000)
+
+
 def parse_items(page) -> List[dict]:
     return page.evaluate(
         """
@@ -89,6 +106,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector(ITEM_SELECTOR, timeout=60000)
+            wait_for_all_items(page)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
