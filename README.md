@@ -130,6 +130,21 @@ python dopa_game_scraper.py
 
 The workflow `.github/workflows/scrape_dopa_game.yml` runs this scraper automatically.
 
+## Dopa Game Banner Scraper
+
+The `dopa_game_banner_scraper.py` script retrieves banner image URLs from [dopa-game.jp](https://dopa-game.jp/). It uses Playwright to collect the alt text, image URL and site URL from the top page slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python dopa_game_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_dopa_banner.yml` runs this scraper automatically.
+
 
 ## Ram Oripa Scraper
 
