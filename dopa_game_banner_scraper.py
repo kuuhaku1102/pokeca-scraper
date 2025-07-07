@@ -11,7 +11,7 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "https://dopa-game.jp/"
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-BANNER_IMG_SELECTOR = "img.chakra-image"
+BANNER_IMG_SELECTOR = "div.slick-slider img"
 
 
 def save_credentials() -> str:
@@ -46,12 +46,12 @@ def get_sheet():
 
 
 def fetch_existing_image_urls(sheet) -> set:
-    print("🔎 Fetching existing image URLs from sheet")
+    print("🔎 Fetching existing imgURL entries from sheet")
     records = sheet.get_all_values()
     urls = set()
-    for row in records[1:]:
-        if len(row) >= 2:
-            urls.add(row[1].strip())
+    for row in records[1:]:  # skip header
+        if len(row) >= 1:
+            urls.add(row[0].strip())
     print(f"📚 {len(urls)} existing URLs found")
     return urls
 
@@ -69,14 +69,19 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
             page.wait_for_load_state("networkidle")
             time.sleep(2)
 
-            # 繰り返しスクロールで lazyload 対応
             print("🌀 Scrolling to trigger lazy-load images")
             for _ in range(5):
                 page.mouse.wheel(0, 500)
                 time.sleep(1.5)
 
-            print(f"🔍 Querying selector: {BANNER_IMG_SELECTOR}")
-            imgs = page.query_selector_all(BANNER_IMG_SELECTOR)
+            print(f"🔍 Looking for selector: {BANNER_IMG_SELECTOR}")
+            MAX_RETRY = 10
+            for i in range(MAX_RETRY):
+                imgs = page.query_selector_all(BANNER_IMG_SELECTOR)
+                print(f"🕐 Retry {i+1}/{MAX_RETRY} - Found {len(imgs)} images")
+                if imgs:
+                    break
+                time.sleep(1)
 
             if not imgs:
                 raise RuntimeError("❌ No banner images found")
@@ -99,8 +104,7 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
                 src = urljoin(BASE_URL, src)
             if src in existing_urls:
                 continue
-            alt = (img.get_attribute("alt") or "noname").strip() or "noname"
-            rows.append([alt, src, BASE_URL, ""])
+            rows.append([src, BASE_URL])
             existing_urls.add(src)
 
         browser.close()
