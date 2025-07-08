@@ -1,6 +1,7 @@
 import os
 import base64
 import time
+import re
 from typing import List
 from urllib.parse import urljoin
 
@@ -57,73 +58,41 @@ def fetch_existing_image_urls(sheet) -> set:
 
 
 def scrape_banners(existing_urls: set) -> List[List[str]]:
-    print("🕷️ Starting Playwright banner scraping...")
+    print("🕷️ Starting fallback banner scraping from HTML...")
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page(
-            viewport={"width": 1280, "height": 800}
-        )
-
+        page = browser.new_page()
         try:
             print(f"🌐 Navigating to {BASE_URL}")
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            time.sleep(1)
+            time.sleep(2)
 
-            # IntersectionObserverを発火させるために下にスクロール
-            print("🌀 Scrolling through slick-slider to trigger lazyload")
-            for i in range(5):
-                page.mouse.wheel(0, 500)
-                time.sleep(1.5)
+            print("📄 Extracting raw HTML content")
+            html = page.content()
 
-            # .slick-slider のセレクターを明示的に待機してから hover
-            print("⏳ Waiting for .slick-slider to be attached to DOM...")
-            page.wait_for_selector("div.slick-slider", timeout=10000, state="attached")
+            # 画像タグを正規表現で取得（dopa_gacha/banner ディレクトリに限定）
+            print("🔍 Searching for banner image URLs in HTML")
+            matches = re.findall(r'<img[^>]+src="([^"]+dopa_gacha/banner[^"]+\.webp)"', html)
 
-            print("🎯 Hovering slick-slider to trigger visibility")
-            page.hover("div.slick-slider")
+            unique_urls = list(set(matches))
+            print(f"✅ Found {len(unique_urls)} unique banner image URLs")
 
-            # バナー画像出現を10秒間ポーリング（1秒間隔で最大10回）
-            print("🧠 Extracting banner images via JS evaluation with retry")
-            MAX_RETRY = 10
-            banner_data = []
-            for i in range(MAX_RETRY):
-                banner_data = page.evaluate("""
-                    () => {
-                        const imgs = Array.from(document.querySelectorAll('img.chakra-image'));
-                        return imgs.map(img => ({
-                            src: img.src,
-                            alt: img.alt || 'noname'
-                        }));
-                    }
-                """)
-                if banner_data:
-                    print(f"✅ Extracted {len(banner_data)} images on retry {i+1}")
-                    break
-                print(f"🔄 Retry {i+1}/{MAX_RETRY} - No images yet")
-                page.mouse.wheel(0, 300)
-                time.sleep(1.5)
-
-            if not banner_data:
-                raise RuntimeError("❌ No banner images extracted after retries")
+            for src in unique_urls:
+                full_src = urljoin(BASE_URL, src.strip())
+                if full_src in existing_urls:
+                    continue
+                rows.append([full_src, BASE_URL])
+                existing_urls.add(full_src)
 
         except Exception as exc:
-            print(f"🛑 page load failed: {exc}")
+            print(f"🛑 HTML scraping failed: {exc}")
             with open("debug.html", "w", encoding="utf-8") as f:
                 f.write(page.content())
             print("📝 debug.html written for inspection")
             browser.close()
             return rows
-
-        print(f"✅ Extracted {len(banner_data)} images via JS")
-
-        for item in banner_data:
-            src = item["src"].strip()
-            if not src or src in existing_urls:
-                continue
-            rows.append([src, BASE_URL])
-            existing_urls.add(src)
 
         browser.close()
         print(f"📦 Scraped {len(rows)} new banner(s)")
