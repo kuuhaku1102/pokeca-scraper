@@ -77,8 +77,11 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
                 page.mouse.wheel(0, 500)
                 time.sleep(1.5)
 
-            # さらに slick-track の中にカーソルを移動させる
-            print("🎯 Forcing banner container to become visible via mouse movement")
+            # .slick-slider のセレクターを明示的に待機してから hover
+            print("⏳ Waiting for .slick-slider to appear...")
+            page.wait_for_selector("div.slick-slider", timeout=10000)
+
+            print("🎯 Hovering slick-slider to trigger visibility")
             page.hover("div.slick-slider")
 
             print("🧠 Extracting banner images via JS evaluation")
