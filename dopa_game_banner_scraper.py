@@ -78,25 +78,35 @@ def scrape_banners(existing_urls: set) -> List[List[str]]:
                 time.sleep(1.5)
 
             # .slick-slider のセレクターを明示的に待機してから hover
-            print("⏳ Waiting for .slick-slider to appear...")
-            page.wait_for_selector("div.slick-slider", timeout=10000)
+            print("⏳ Waiting for .slick-slider to be attached to DOM...")
+            page.wait_for_selector("div.slick-slider", timeout=10000, state="attached")
 
             print("🎯 Hovering slick-slider to trigger visibility")
             page.hover("div.slick-slider")
 
-            print("🧠 Extracting banner images via JS evaluation")
-            banner_data = page.evaluate("""
-                () => {
-                    const imgs = Array.from(document.querySelectorAll('img.chakra-image'));
-                    return imgs.map(img => ({
-                        src: img.src,
-                        alt: img.alt || 'noname'
-                    }));
-                }
-            """)
+            # バナー画像出現を10秒間ポーリング（1秒間隔で最大10回）
+            print("🧠 Extracting banner images via JS evaluation with retry")
+            MAX_RETRY = 10
+            banner_data = []
+            for i in range(MAX_RETRY):
+                banner_data = page.evaluate("""
+                    () => {
+                        const imgs = Array.from(document.querySelectorAll('img.chakra-image'));
+                        return imgs.map(img => ({
+                            src: img.src,
+                            alt: img.alt || 'noname'
+                        }));
+                    }
+                """)
+                if banner_data:
+                    print(f"✅ Extracted {len(banner_data)} images on retry {i+1}")
+                    break
+                print(f"🔄 Retry {i+1}/{MAX_RETRY} - No images yet")
+                page.mouse.wheel(0, 300)
+                time.sleep(1.5)
 
             if not banner_data:
-                raise RuntimeError("❌ No banner images extracted via JS")
+                raise RuntimeError("❌ No banner images extracted after retries")
 
         except Exception as exc:
             print(f"🛑 page load failed: {exc}")
