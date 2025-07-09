@@ -326,3 +326,17 @@ python sweet_toreka_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_sweet_toreka.yml` runs this scraper automatically.
+
+## Jin Studio Oripa Scraper
+
+The `jinstudiooripa_scraper.py` script collects gacha information from [jinstudiooripa.com](https://jinstudiooripa.com/product/pokemon). It uses Playwright to scrape the listing page and extracts the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+python jinstudiooripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_jinstudiooripa.yml` runs this scraper automatically.
