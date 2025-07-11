@@ -146,6 +146,21 @@ python dopa_game_banner_scraper.py
 The workflow `.github/workflows/scrape_dopa_banner.yml` runs this scraper automatically.
 
 
+## Oripa Dash Banner Scraper
+
+The `oripa_dash_banner_scraper.py` script retrieves banner image URLs from [oripa-dash.com](https://oripa-dash.com/user/packList). It uses Playwright to collect the image URL and site URL from the top slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python oripa_dash_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_oripa_dash_banner.yml` runs this scraper automatically.
+
 ## Ram Oripa Scraper
 
 The `ram_oripa_scraper.py` script gathers gacha information from [ram-oripa.com](https://ram-oripa.com/). It uses Playwright to scrape the top page and collects the title, image URL, detail page URL and PT value. New entries are appended to the `その他` sheet, skipping duplicates.
