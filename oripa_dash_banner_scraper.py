@@ -2,13 +2,6 @@ import os
 import base64
 from urllib.parse import urljoin
 
-
-import gspread
-from google.oauth2.service_account import Credentials
-from playwright.sync_api import sync_playwright
-
-BASE_URL = "https://oripa-dash.com/user/packList"
-
 import requests
 import gspread
 from bs4 import BeautifulSoup
@@ -16,7 +9,6 @@ from google.oauth2.service_account import Credentials
 
 BASE_URL = "https://oripa-dash.com"
 TARGET_URL = "https://oripa-dash.com/user/packList"
-
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
@@ -54,43 +46,7 @@ def fetch_existing_image_urls(sheet) -> set:
 
 
 def scrape_banners(existing_urls: set):
-
-    rows = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
-        print("🔍 oripa-dash.com スクレイピング開始...")
-        try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector(".swiper-slide", timeout=60000)
-        except Exception as exc:
-            print(f"🛑 ページ読み込み失敗: {exc}")
-            html = page.content()
-            with open("oripa_dash_banner_debug.html", "w", encoding="utf-8") as f:
-                f.write(html)
-            browser.close()
-            return rows
-
-        slides = page.query_selector_all(".swiper-slide")
-        for slide in slides:
-            img = slide.query_selector("img")
-            if not img:
-                continue
-            src = (img.get_attribute("src") or "").strip()
-            if not src:
-                continue
-            if src.startswith("/"):
-                src = urljoin(BASE_URL, src)
-
-            link = slide.query_selector("a")
-            href = (link.get_attribute("href") if link else "").strip()
-            if href.startswith("/"):
-                href = urljoin(BASE_URL, href)
-
-            if src not in existing_urls:
-                rows.append([src, href or BASE_URL])
-                existing_urls.add(src)
-        browser.close()
+    print("🔍 BeautifulSoup によるスクレイピング開始...")
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
         res = requests.get(TARGET_URL, headers=headers, timeout=30)
