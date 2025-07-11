@@ -1,10 +1,9 @@
 import os
 import base64
-import requests
-from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import gspread
 from google.oauth2.service_account import Credentials
+from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://dopa-game.jp/"
 SHEET_NAME = "news"
@@ -38,34 +37,44 @@ def fetch_existing_image_urls(sheet) -> set:
     return urls
 
 def scrape_banners(existing_urls: set):
-    print("🌐 Downloading HTML...")
-    try:
-        res = requests.get(BASE_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
-        res.raise_for_status()
-    except Exception as e:
-        print(f"🛑 ページ取得失敗: {e}")
-        return []
-
-    soup = BeautifulSoup(res.text, "html.parser")
-
-    print("🔍 Searching slick-slide images...")
+    print("🎬 Launching browser and loading page...")
     rows = []
     skipped = 0
 
-    for banner in soup.select(".slick-slide a"):
-        img = banner.find("img")
-        href = banner.get("href")
-        if not img or not img.get("src"):
-            continue
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
+        try:
+            page.goto(BASE_URL, timeout=60000, wait_until="load")
+            page.wait_for_timeout(5000)
+        except Exception as e:
+            print(f"🛑 ページ読み込み失敗: {e}")
+            browser.close()
+            return []
 
-        img_url = urljoin(BASE_URL, img["src"].strip())
-        if img_url in existing_urls:
-            skipped += 1
-            continue
+        banners = page.query_selector_all(".slick-slide a")
+        for banner in banners:
+            img = banner.query_selector("img")
+            href = banner.get_attribute("href")
 
-        link_url = urljoin(BASE_URL, href.strip()) if href else BASE_URL
-        rows.append([img_url, link_url])
-        existing_urls.add(img_url)
+            if not img:
+                continue
+
+            src = img.get_attribute("src")
+            if not src:
+                continue
+
+            img_url = urljoin(BASE_URL, src.strip())
+            link_url = urljoin(BASE_URL, href.strip()) if href else BASE_URL
+
+            if img_url in existing_urls:
+                skipped += 1
+                continue
+
+            rows.append([img_url, link_url])
+            existing_urls.add(img_url)
+
+        browser.close()
 
     print(f"✅ {len(rows)} new banner(s) found, {skipped} skipped")
     return rows
