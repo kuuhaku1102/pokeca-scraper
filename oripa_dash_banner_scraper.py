@@ -2,10 +2,9 @@ import os
 import base64
 from urllib.parse import urljoin
 
-import requests
 import gspread
-from bs4 import BeautifulSoup
 from google.oauth2.service_account import Credentials
+from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://oripa-dash.com"
 TARGET_URL = "https://oripa-dash.com/user/packList"
@@ -46,31 +45,39 @@ def fetch_existing_image_urls(sheet) -> set:
 
 
 def scrape_banners(existing_urls: set):
-    print("🔍 BeautifulSoup によるスクレイピング開始...")
-    headers = {"User-Agent": "Mozilla/5.0"}
-    try:
-        res = requests.get(TARGET_URL, headers=headers, timeout=30)
-        res.raise_for_status()
-    except Exception as e:
-        print(f"🛑 ページ取得失敗: {e}")
-        return []
-
-    soup = BeautifulSoup(res.text, "html.parser")
-    slides = soup.select(".swiper-wrapper .swiper-slide")
-
+    print("🔍 Playwright によるスクレイピング開始...")
     rows = []
-    for slide in slides:
-        a_tag = slide.find("a")
-        img_tag = slide.find("img")
-        if not a_tag or not img_tag:
-            continue
 
-        link_url = urljoin(BASE_URL, a_tag.get("href", ""))
-        img_src = urljoin(BASE_URL, img_tag.get("src", "") or "")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
+        try:
+            page.goto(BASE_URL, timeout=60000, wait_until="load")  # ← "networkidle" を "load" に変更
+            page.wait_for_timeout(5000)  # JS実行の猶予（Swiper初期化待ち）
+            slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
+        except Exception as e:
+            print(f"🛑 読み込み失敗: {e}")
+            browser.close()
+            return rows
 
-        if img_src and img_src not in existing_urls:
-            rows.append([img_src, link_url])
-            existing_urls.add(img_src)
+        for slide in slides:
+            img = slide.query_selector("img")
+            link = slide.query_selector("a")
+
+            src = img.get_attribute("src") if img else ""
+            href = link.get_attribute("href") if link else ""
+
+            if not src:
+                continue
+
+            src = urljoin(BASE_URL, src)
+            href = urljoin(BASE_URL, href) if href else BASE_URL
+
+            if src not in existing_urls:
+                rows.append([src, href])
+                existing_urls.add(src)
+
+        browser.close()
 
     print(f"✅ {len(rows)} 件の新規バナー")
     return rows
