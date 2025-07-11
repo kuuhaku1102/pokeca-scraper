@@ -341,6 +341,9 @@ python jinstudiooripa_scraper.py
 
 The workflow `.github/workflows/scrape_jinstudiooripa.yml` runs this scraper automatically.
 
+## Rises Scraper
+
+The `rises_scraper.py` script collects gacha information from [rises.jp](https://rises.jp/product). It uses Playwright to scrape the listing page and extracts the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
 ## Tora Net Oripa Scraper
 
 The `tora_net_oripa_scraper.py` script collects gacha information from [tora.net-oripa.com](https://tora.net-oripa.com/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
@@ -350,6 +353,12 @@ Run locally:
 ```bash
 pip install -r requirements.txt
 export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+
+python rises_scraper.py
+```
+
+The workflow `.github/workflows/scrape_rises.yml` runs this scraper automatically.
+
 export SPREADSHEET_URL=<YOUR_SHEET_URL>
 python tora_net_oripa_scraper.py
 ```
