@@ -46,50 +46,31 @@ def scrape_banners(existing_urls: set):
         page = browser.new_page()
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="load")
-            page.wait_for_timeout(5000)
+            page.wait_for_selector(".slick-slide img", timeout=15000)
+            page.wait_for_timeout(2000)
         except Exception as e:
             print(f"🛑 ページ読み込み失敗: {e}")
             browser.close()
             return []
 
-        # 全画像タグの数を確認
-        all_images = page.query_selector_all("img")
-        print(f"🔎 Total <img> tags found: {len(all_images)}")
-        for img in all_images[:5]:  # 最初の5枚だけ表示
-            print("🖼️", img.get_attribute("src"))
+        images = page.query_selector_all(".slick-slide img")
+        print(f"🖼️ slick-slide images found: {len(images)}")
 
-        # slick-track HTML出力
-        try:
-            track_html = page.inner_html(".slick-track")
-            with open("dopa_track_debug.html", "w", encoding="utf-8") as f:
-                f.write(track_html)
-            print("📝 slick-track HTML dumped.")
-        except Exception as e:
-            print("⚠️ slick-track not found:", e)
-
-        # フルHTML出力
-        full_html = page.content()
-        with open("dopa_full_debug.html", "w", encoding="utf-8") as f:
-            f.write(full_html)
-
-        # ✅ 画像とリンクを確実に取得
-        images = page.query_selector_all(".slick-track img")
         for img in images:
             src = img.get_attribute("src")
             if not src:
                 continue
             img_url = urljoin(BASE_URL, src.strip())
 
-            # 親の<a>タグをたどってリンクを取得
+            # 画像に紐づくリンク取得
             a_tag = img.evaluate_handle("node => node.closest('a')")
-            href = a_tag.get_property("href").json_value() if a_tag else None
-            link_url = href.strip() if href else BASE_URL
+            href = a_tag.get_property("href").json_value() if a_tag else BASE_URL
 
             if img_url in existing_urls:
                 skipped += 1
                 continue
 
-            rows.append([img_url, link_url])
+            rows.append([img_url, href])
             existing_urls.add(img_url)
 
         browser.close()
