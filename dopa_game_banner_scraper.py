@@ -52,6 +52,26 @@ def scrape_banners(existing_urls: set):
             browser.close()
             return []
 
+        # 全画像タグの数を確認
+        all_images = page.query_selector_all("img")
+        print(f"🔎 Total <img> tags found: {len(all_images)}")
+        for img in all_images[:5]:  # 最初の5枚だけ表示
+            print("🖼️", img.get_attribute("src"))
+
+        # slick-track HTML出力
+        try:
+            track_html = page.inner_html(".slick-track")
+            with open("dopa_track_debug.html", "w", encoding="utf-8") as f:
+                f.write(track_html)
+            print("📝 slick-track HTML dumped.")
+        except Exception as e:
+            print("⚠️ slick-track not found:", e)
+
+        # フルHTML出力
+        full_html = page.content()
+        with open("dopa_full_debug.html", "w", encoding="utf-8") as f:
+            f.write(full_html)
+
         # ✅ 画像とリンクを確実に取得
         images = page.query_selector_all(".slick-track img")
         for img in images:
