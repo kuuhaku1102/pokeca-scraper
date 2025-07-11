@@ -73,7 +73,7 @@ def scrape_banners(existing_urls: set):
             href = urljoin(BASE_URL, href) if href else TARGET_URL
 
             if src not in existing_urls:
-                rows.append([src, href])
+                rows.append([src, TARGET_URL])  # ← B列には TARGET_URL を固定で出力
                 existing_urls.add(src)
 
         browser.close()
