@@ -52,8 +52,8 @@ def scrape_banners(existing_urls: set):
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="load")  # ← "networkidle" を "load" に変更
-            page.wait_for_timeout(5000)  # JS実行の猶予（Swiper初期化待ち）
+            page.goto(TARGET_URL, timeout=60000, wait_until="load")
+            page.wait_for_timeout(5000)  # SwiperなどのJSが動くのを待つ
             slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
@@ -71,10 +71,10 @@ def scrape_banners(existing_urls: set):
                 continue
 
             src = urljoin(BASE_URL, src)
-            href = urljoin(BASE_URL, href) if href else BASE_URL
+            href = urljoin(BASE_URL, href) if href else TARGET_URL
 
             if src not in existing_urls:
-                rows.append([src, href])
+                rows.append([src, TARGET_URL])  # ← B列には TARGET_URL を固定で出力
                 existing_urls.add(src)
 
         browser.close()
