@@ -52,20 +52,18 @@ def scrape_banners(existing_urls: set):
             browser.close()
             return []
 
-        banners = page.query_selector_all(".slick-slide a")
-        for banner in banners:
-            img = banner.query_selector("img")
-            href = banner.get_attribute("href")
-
-            if not img:
-                continue
-
+        # ✅ 画像とリンクを確実に取得
+        images = page.query_selector_all(".slick-track img")
+        for img in images:
             src = img.get_attribute("src")
             if not src:
                 continue
-
             img_url = urljoin(BASE_URL, src.strip())
-            link_url = urljoin(BASE_URL, href.strip()) if href else BASE_URL
+
+            # 親の<a>タグをたどってリンクを取得
+            a_tag = img.evaluate_handle("node => node.closest('a')")
+            href = a_tag.get_property("href").json_value() if a_tag else None
+            link_url = href.strip() if href else BASE_URL
 
             if img_url in existing_urls:
                 skipped += 1
