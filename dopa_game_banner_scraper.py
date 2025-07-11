@@ -50,25 +50,25 @@ def scrape_banners(existing_urls: set):
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="load")
-            # ✅ 非表示状態でもDOMにあればOK
-            page.wait_for_selector(".slick-slide img", timeout=15000, state="attached")
+            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_timeout(5000)  # JS初期化待ち
+            page.mouse.wheel(0, 2000)   # スクロールでlazyload促進
             page.wait_for_timeout(2000)
         except Exception as e:
             print(f"🛑 ページ読み込み失敗: {e}")
             browser.close()
             return []
 
-        images = page.query_selector_all(".slick-slide img")
-        print(f"🖼️ slick-slide images found: {len(images)}")
+        images = page.query_selector_all("img")
+        print(f"🖼️ Total <img> tags found: {len(images)}")
 
         for img in images:
             src = img.get_attribute("src")
-            if not src:
+            if not src or "/banner/image/" not in src:
                 continue
+
             img_url = urljoin(BASE_URL, src.strip())
 
-            # 親の a タグから href を取得
             a_tag = img.evaluate_handle("node => node.closest('a')")
             href = a_tag.get_property("href").json_value() if a_tag else BASE_URL
             link_url = href.strip() if href else BASE_URL
