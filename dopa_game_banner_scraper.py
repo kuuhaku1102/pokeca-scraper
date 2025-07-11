@@ -48,21 +48,26 @@ def scrape_banners(existing_urls: set):
 
     soup = BeautifulSoup(res.text, "html.parser")
 
-    print("🔍 Searching swiper images...")
+    print("🔍 Searching slick-slide images...")
     rows = []
     skipped = 0
-    for img in soup.select(".swiper-slide img"):
-        src = img.get("src")
-        if not src:
+
+    for banner in soup.select(".slick-slide a"):
+        img = banner.find("img")
+        href = banner.get("href")
+        if not img or not img.get("src"):
             continue
-        full_url = urljoin(BASE_URL, src.strip())
-        if full_url in existing_urls:
+
+        img_url = urljoin(BASE_URL, img["src"].strip())
+        if img_url in existing_urls:
             skipped += 1
             continue
-        rows.append([full_url, BASE_URL])  # B列には BASE_URL を固定出力
-        existing_urls.add(full_url)
 
-    print(f"✅ {len(rows)} new banner(s) found, {skipped} skipped (already existed)")
+        link_url = urljoin(BASE_URL, href.strip()) if href else BASE_URL
+        rows.append([img_url, link_url])
+        existing_urls.add(img_url)
+
+    print(f"✅ {len(rows)} new banner(s) found, {skipped} skipped")
     return rows
 
 def main():
@@ -74,7 +79,7 @@ def main():
         print("📭 No new banners")
         return
     sheet.append_rows(rows, value_input_option="USER_ENTERED")
-    print(f"📥 Appended {len(rows)} new rows")
+    print(f"📥 Appended {len(rows)} rows")
 
 if __name__ == "__main__":
     main()
