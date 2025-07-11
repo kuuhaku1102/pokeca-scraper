@@ -39,21 +39,30 @@ def fetch_existing_image_urls(sheet) -> set:
 
 def scrape_banners(existing_urls: set):
     print("🌐 Downloading HTML...")
-    res = requests.get(BASE_URL, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        res = requests.get(BASE_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+        res.raise_for_status()
+    except Exception as e:
+        print(f"🛑 ページ取得失敗: {e}")
+        return []
+
     soup = BeautifulSoup(res.text, "html.parser")
 
     print("🔍 Searching swiper images...")
     rows = []
+    skipped = 0
     for img in soup.select(".swiper-slide img"):
         src = img.get("src")
         if not src:
             continue
         full_url = urljoin(BASE_URL, src.strip())
-        if full_url not in existing_urls:
-            rows.append([full_url, BASE_URL])
-            existing_urls.add(full_url)
+        if full_url in existing_urls:
+            skipped += 1
+            continue
+        rows.append([full_url, BASE_URL])  # B列には BASE_URL を固定出力
+        existing_urls.add(full_url)
 
-    print(f"✅ Found {len(rows)} new banner(s)")
+    print(f"✅ {len(rows)} new banner(s) found, {skipped} skipped (already existed)")
     return rows
 
 def main():
@@ -65,7 +74,7 @@ def main():
         print("📭 No new banners")
         return
     sheet.append_rows(rows, value_input_option="USER_ENTERED")
-    print(f"📥 Appended {len(rows)} rows")
+    print(f"📥 Appended {len(rows)} new rows")
 
 if __name__ == "__main__":
     main()
