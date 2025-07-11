@@ -2,11 +2,13 @@ import os
 import base64
 from urllib.parse import urljoin
 
+import requests
 import gspread
+from bs4 import BeautifulSoup
 from google.oauth2.service_account import Credentials
-from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://oripa-dash.com/user/packList"
+BASE_URL = "https://oripa-dash.com"
+TARGET_URL = "https://oripa-dash.com/user/packList"
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
@@ -44,34 +46,31 @@ def fetch_existing_image_urls(sheet) -> set:
 
 
 def scrape_banners(existing_urls: set):
-    rows = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
-        print("🔍 oripa-dash.com スクレイピング開始...")
-        try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector(".swiper-slide img", timeout=60000)
-        except Exception as exc:
-            print(f"🛑 ページ読み込み失敗: {exc}")
-            html = page.content()
-            with open("oripa_dash_banner_debug.html", "w", encoding="utf-8") as f:
-                f.write(html)
-            browser.close()
-            return rows
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        res = requests.get(TARGET_URL, headers=headers, timeout=30)
+        res.raise_for_status()
+    except Exception as e:
+        print(f"🛑 ページ取得失敗: {e}")
+        return []
 
-        images = page.query_selector_all(".swiper-slide img")
-        for img in images:
-            src = img.get_attribute("src") or ""
-            src = src.strip()
-            if not src:
-                continue
-            if src.startswith("/"):
-                src = urljoin(BASE_URL, src)
-            if src not in existing_urls:
-                rows.append([src, BASE_URL])
-                existing_urls.add(src)
-        browser.close()
+    soup = BeautifulSoup(res.text, "html.parser")
+    slides = soup.select(".swiper-wrapper .swiper-slide")
+
+    rows = []
+    for slide in slides:
+        a_tag = slide.find("a")
+        img_tag = slide.find("img")
+        if not a_tag or not img_tag:
+            continue
+
+        link_url = urljoin(BASE_URL, a_tag.get("href", ""))
+        img_src = urljoin(BASE_URL, img_tag.get("src", "") or "")
+
+        if img_src and img_src not in existing_urls:
+            rows.append([img_src, link_url])
+            existing_urls.add(img_src)
+
     print(f"✅ {len(rows)} 件の新規バナー")
     return rows
 
