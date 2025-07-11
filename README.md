@@ -148,6 +148,9 @@ The workflow `.github/workflows/scrape_dopa_banner.yml` runs this scraper automa
 
 ## Oripa Dash Banner Scraper
 
+
+The `oripa_dash_banner_scraper.py` script retrieves banner image URLs from [oripa-dash.com](https://oripa-dash.com/user/packList). It uses Playwright to collect each banner's image URL and link URL from the top slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
 The `oripa_dash_banner_scraper.py` script retrieves banner image URLs from [oripa-dash.com](https://oripa-dash.com/user/packList). It uses Playwright to collect the image URL and site URL from the top slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
 
 Run locally:
