@@ -1,6 +1,7 @@
 import os
 import base64
 from urllib.parse import urljoin
+
 import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
@@ -9,6 +10,7 @@ BASE_URL = "https://dopa-game.jp/"
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
+
 def save_credentials() -> str:
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
@@ -16,6 +18,7 @@ def save_credentials() -> str:
     with open("credentials.json", "w") as f:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
+
 
 def get_sheet():
     creds_path = save_credentials()
@@ -28,6 +31,7 @@ def get_sheet():
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
+
 def fetch_existing_image_urls(sheet) -> set:
     records = sheet.get_all_values()
     urls = set()
@@ -35,6 +39,7 @@ def fetch_existing_image_urls(sheet) -> set:
         if len(row) >= 1:
             urls.add(row[0].strip())
     return urls
+
 
 def scrape_banners(existing_urls: set):
     print("🎬 Launching browser and loading page...")
@@ -46,7 +51,8 @@ def scrape_banners(existing_urls: set):
         page = browser.new_page()
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="load")
-            page.wait_for_selector(".slick-slide img", timeout=15000)
+            # ✅ 非表示状態でもDOMにあればOK
+            page.wait_for_selector(".slick-slide img", timeout=15000, state="attached")
             page.wait_for_timeout(2000)
         except Exception as e:
             print(f"🛑 ページ読み込み失敗: {e}")
@@ -62,21 +68,23 @@ def scrape_banners(existing_urls: set):
                 continue
             img_url = urljoin(BASE_URL, src.strip())
 
-            # 画像に紐づくリンク取得
+            # 親の a タグから href を取得
             a_tag = img.evaluate_handle("node => node.closest('a')")
             href = a_tag.get_property("href").json_value() if a_tag else BASE_URL
+            link_url = href.strip() if href else BASE_URL
 
             if img_url in existing_urls:
                 skipped += 1
                 continue
 
-            rows.append([img_url, href])
+            rows.append([img_url, link_url])
             existing_urls.add(img_url)
 
         browser.close()
 
     print(f"✅ {len(rows)} new banner(s) found, {skipped} skipped")
     return rows
+
 
 def main():
     print("🚀 Start")
@@ -88,6 +96,7 @@ def main():
         return
     sheet.append_rows(rows, value_input_option="USER_ENTERED")
     print(f"📥 Appended {len(rows)} rows")
+
 
 if __name__ == "__main__":
     main()
