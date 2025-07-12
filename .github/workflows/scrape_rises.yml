@@ -3,7 +3,7 @@ name: Scrape Rises
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 */3 * * *'  # 3時間ごとに実行
 
 jobs:
   scrape:
@@ -11,6 +11,7 @@ jobs:
     env:
       GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
       SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,13 +28,6 @@ jobs:
           python -m playwright install --with-deps
 
       - name: Run scraper
-        env:
-          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-
-          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-
-          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-
         run: python rises_scraper.py
 
       - name: Upload debug HTML
