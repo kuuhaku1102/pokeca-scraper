@@ -51,6 +51,11 @@ for i, url in enumerate(urls, start=2):
                 prices["キズあり"] = tds[2].text.strip()
                 prices["PSA10"] = tds[3].text.strip()
 
-    sheet.update(f'D{i}', [[json.dumps(prices, ensure_ascii=False)]])
+        # Google Sheets の D列に出力
+    sheet.update(
+        range_name=f'D{i}',
+        values=[[json.dumps(prices, ensure_ascii=False)]]
+    )
+
 
 driver.quit()

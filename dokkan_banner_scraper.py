@@ -6,7 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://dopa-game.jp"
+BASE_URL = "https://dokkan-toreca.com"
 TARGET_URL = BASE_URL
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
@@ -43,38 +43,40 @@ def fetch_existing_image_urls(sheet) -> set:
 def scrape_banners(existing_urls: set):
     print("🔍 Playwright によるスクレイピング開始...")
     rows = []
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page(
+        context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
         )
+        page = context.new_page()
+
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
             page.wait_for_timeout(8000)
-            slides = page.query_selector_all(".slick-slide")
+
+            slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
+            for slide in slides:
+                img = slide.query_selector("img")
+
+                if not img:
+                    continue
+
+                src = img.get_attribute("src")
+                if not src:
+                    continue
+
+                full_src = urljoin(BASE_URL, src)
+                full_href = BASE_URL
+
+                if full_src not in existing_urls:
+                    rows.append([full_src, full_href])
+                    existing_urls.add(full_src)
+
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
+        finally:
             browser.close()
-            return rows
-
-        for slide in slides:
-            img = slide.query_selector("img")
-
-            if not img:
-                continue
-
-            src = img.get_attribute("src") or ""
-            if not src:
-                continue
-
-            src = urljoin(BASE_URL, src)
-            href = BASE_URL  # B列は常に https://dopa-game.jp に固定
-
-            if src not in existing_urls:
-                rows.append([src, href])
-                existing_urls.add(src)
-
-        browser.close()
 
     print(f"✅ {len(rows)} 件の新規バナー")
     return rows
