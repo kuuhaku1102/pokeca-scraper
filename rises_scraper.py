@@ -9,6 +9,7 @@ from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://rises.jp/product"
+SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit"
 SHEET_NAME = "その他"
 
@@ -30,6 +31,8 @@ def get_sheet():
     ]
     creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
     client = gspread.authorize(creds)
+    if not SPREADSHEET_URL:
+        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
@@ -79,6 +82,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         page = browser.new_page()
         print("🔍 rises.jp スクレイピング開始...")
         try:
+            page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
+            page.wait_for_selector('div.gacha-item', timeout=120000)
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector('div.gacha-item', timeout=60000)
         except Exception as exc:

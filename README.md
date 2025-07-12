@@ -432,6 +432,7 @@ Run locally:
 ```bash
 pip install -r requirements.txt
 export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<SPREADSHEET_URL>
 
 python rises_scraper.py
 ```
