@@ -37,11 +37,7 @@ def get_sheet():
 
 def fetch_existing_image_urls(sheet) -> set:
     records = sheet.get_all_values()
-    urls = set()
-    for row in records[1:]:
-        if len(row) >= 1:
-            urls.add(row[0].strip())
-    return urls
+    return set(row[0].strip() for row in records[1:] if row and row[0].strip())
 
 
 def scrape_banners(existing_urls: set):
@@ -52,32 +48,33 @@ def scrape_banners(existing_urls: set):
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         try:
-            page.goto(TARGET_URL, timeout=60000, wait_until="load")
+            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_timeout(5000)
-            slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
+            slide_links = page.query_selector_all(".swiper-wrapper .swiper-slide")
+
+            for slide in slide_links:
+                img = slide.query_selector("img")
+                parent_a = slide  # slide自体が<a>要素
+                if not img:
+                    continue
+
+                src = img.get_attribute("src")
+                href = parent_a.get_attribute("href") if parent_a else TARGET_URL
+
+                if not src:
+                    continue
+
+                src = urljoin(BASE_URL, src)
+                href = urljoin(BASE_URL, href)
+
+                if src not in existing_urls:
+                    rows.append([src, href])
+                    existing_urls.add(src)
+
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
+        finally:
             browser.close()
-            return rows
-
-        for slide in slides:
-            img = slide.query_selector("img")
-            link = slide.query_selector("a")
-
-            src = img.get_attribute("src") if img else ""
-            href = link.get_attribute("href") if link else ""
-
-            if not src:
-                continue
-
-            src = urljoin(BASE_URL, src)
-            href = urljoin(BASE_URL, href) if href else TARGET_URL
-
-            if src not in existing_urls:
-                rows.append([src, TARGET_URL])
-                existing_urls.add(src)
-
-        browser.close()
 
     print(f"✅ {len(rows)} 件の新規バナー")
     return rows
