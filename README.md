@@ -458,3 +458,18 @@ python gachaking_oripa_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_gachaking_oripa.yml` runs this scraper automatically.
+
+## TCGShopAAA Scraper
+
+The `tcgshopaaa_scraper.py` script collects gacha information from [tcgshopaaa.com](https://tcgshopaaa.com/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python tcgshopaaa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_tcgshopaaa.yml` runs this scraper automatically.
