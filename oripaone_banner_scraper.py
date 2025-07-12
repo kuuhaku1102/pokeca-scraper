@@ -1,107 +1,135 @@
+import asyncio
+import json
 import os
-import base64
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
+import requests
 import gspread
+import base64
 from google.oauth2.service_account import Credentials
-from playwright.sync_api import sync_playwright
-
-BASE_URL = "https://oripaone.jp"
-TARGET_URL = BASE_URL
-SHEET_NAME = "news"
-SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
+from playwright.async_api import async_playwright
 
 
-def save_credentials() -> str:
-    encoded = os.environ.get("GSHEET_JSON", "")
-    if not encoded:
-        raise RuntimeError("GSHEET_JSON environment variable is missing")
-    with open("credentials.json", "w") as f:
-        f.write(base64.b64decode(encoded).decode("utf-8"))
-    return "credentials.json"
+class OripaOneBannerScraper:
+    def __init__(self):
+        self.base_url = "https://oripaone.jp/"
+        self.sheet_name = "news"
+        self.sheet_url = os.environ.get("SPREADSHEET_URL")
+        self.gsheet_json = os.environ.get("GSHEET_JSON")
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        })
 
+    def save_banner_data(self, data: Dict, filename: str = 'banner_data.json'):
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"✅ JSON保存完了: {filename}")
 
-def get_sheet():
-    creds_path = save_credentials()
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
-    client = gspread.authorize(creds)
-    if not SPREADSHEET_URL:
-        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
-    spreadsheet = client.open_by_url(SPREADSHEET_URL)
-    return spreadsheet.worksheet(SHEET_NAME)
-
-
-def fetch_existing_image_urls(sheet) -> set:
-    records = sheet.get_all_values()
-    urls = set()
-    for row in records[1:]:
-        if len(row) >= 1:
-            urls.add(row[0].strip())
-    return urls
-
-
-def scrape_banners(existing_urls: set):
-    print("🔍 Playwright によるスクレイピング開始...")
-    rows = []
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+    def download_banner(self, banner_url: str, filename: str) -> bool:
         try:
-            page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
-            page.wait_for_timeout(5000)
-
-            image_data = page.evaluate('''() => {
-                const imgs = Array.from(document.querySelectorAll("img"));
-                return imgs.map(img => {
-                    const src = img.getAttribute("src") || "";
-                    const link = img.closest("a");
-                    const href = link ? link.href : "";
-                    return { src, href };
-                });
-            }''')
-
-            print(f"🖼️ 検出された画像数: {len(image_data)}")
-
-            for item in image_data:
-                src = item["src"]
-                href = item["href"] or TARGET_URL
-
-                if not src:
-                    continue
-
-                full_src = urljoin(BASE_URL, src)
-                full_href = urljoin(BASE_URL, href)
-
-                if full_src not in existing_urls:
-                    rows.append([full_src, full_href])
-                    existing_urls.add(full_src)
-
+            response = self.session.get(banner_url, timeout=10)
+            response.raise_for_status()
+            os.makedirs('banners', exist_ok=True)
+            with open(f'banners/{filename}', 'wb') as f:
+                f.write(response.content)
+            print(f"📥 バナー保存: {filename}")
+            return True
         except Exception as e:
-            print(f"🛑 読み込み失敗: {e}")
-            browser.close()
-            return rows
+            print(f"❌ バナー保存失敗: {e}")
+            return False
 
-        browser.close()
+    async def scrape_with_playwright(self) -> Dict:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context()
+            page = await context.new_page()
 
-    print(f"✅ {len(rows)} 件の新規バナー")
-    return rows
+            try:
+                await page.goto(self.base_url, wait_until='networkidle', timeout=30000)
+                await page.wait_for_timeout(5000)
+
+                banners = await page.evaluate('''() => {
+                    const results = [];
+                    const imgs = document.querySelectorAll("img");
+                    imgs.forEach(img => {
+                        if (img.src && img.src.includes("banners")) {
+                            const link = img.closest("a");
+                            results.push({
+                                src: img.src,
+                                href: link ? link.href : "",
+                                alt: img.alt || ""
+                            });
+                        }
+                    });
+                    return results;
+                }''')
+
+                return {
+                    "title": await page.title(),
+                    "url": page.url,
+                    "timestamp": datetime.now().isoformat(),
+                    "banners": banners,
+                }
+
+            except Exception as e:
+                return {"error": str(e), "banners": []}
+            finally:
+                await browser.close()
+
+    def write_to_google_sheet(self, banners: List[Dict]):
+        if not self.gsheet_json or not self.sheet_url:
+            raise RuntimeError("❌ GSHEET_JSON または SPREADSHEET_URL が未設定です")
+
+        creds_path = "credentials.json"
+        with open(creds_path, "w") as f:
+            f.write(base64.b64decode(self.gsheet_json).decode("utf-8"))
+
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+        client = gspread.authorize(creds)
+        sheet = client.open_by_url(self.sheet_url).worksheet(self.sheet_name)
+
+        existing = set(row[0] for row in sheet.get_all_values()[1:] if row)
+        new_rows = []
+
+        for b in banners:
+            full_url = urljoin(self.base_url, b["src"])
+            if full_url not in existing:
+                new_rows.append([full_url, b.get("href", self.base_url)])
+
+        if new_rows:
+            sheet.append_rows(new_rows, value_input_option="USER_ENTERED")
+            print(f"📝 スプレッドシートに {len(new_rows)} 件追加しました")
+        else:
+            print("📭 追加対象なし（重複）")
+
+    async def run(self):
+        print("🚀 スクレイピング開始")
+        result = await self.scrape_with_playwright()
+        if "error" in result:
+            print("❌ エラー:", result["error"])
+            return
+
+        self.save_banner_data(result)
+
+        for i, banner in enumerate(result["banners"]):
+            self.download_banner(banner["src"], f"banner_{i}.png")
+
+        self.write_to_google_sheet(result["banners"])
+        print("🎉 完了！")
 
 
-def main() -> None:
-    sheet = get_sheet()
-    existing = fetch_existing_image_urls(sheet)
-    rows = scrape_banners(existing)
-    if not rows:
-        print("📭 新規データなし")
-        return
-    sheet.append_rows(rows, value_input_option="USER_ENTERED")
-    print(f"📥 {len(rows)} 件追記完了")
+async def main():
+    scraper = OripaOneBannerScraper()
+    await scraper.run()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
