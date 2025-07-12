@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from urllib.parse import urljoin
 
 import requests
@@ -49,6 +49,7 @@ class OripaOneBannerScraper:
             page = await context.new_page()
 
             try:
+                print("🌐 ページにアクセス中...")
                 await page.goto(self.base_url, wait_until='networkidle', timeout=30000)
                 await page.wait_for_timeout(5000)
 
@@ -56,7 +57,7 @@ class OripaOneBannerScraper:
                     const results = [];
                     const imgs = document.querySelectorAll("img");
                     imgs.forEach(img => {
-                        if (img.src && img.src.includes("banners")) {
+                        if (img.src && img.src.match(/banner|banners|top|pickup|main/i)) {
                             const link = img.closest("a");
                             results.push({
                                 src: img.src,
@@ -113,16 +114,26 @@ class OripaOneBannerScraper:
     async def run(self):
         print("🚀 スクレイピング開始")
         result = await self.scrape_with_playwright()
+
         if "error" in result:
             print("❌ エラー:", result["error"])
             return
 
+        print(f"🖼️ バナー数: {len(result['banners'])}")
+        if result["banners"]:
+            print(f"🔍 最初のバナー: {result['banners'][0]}")
+
         self.save_banner_data(result)
 
         for i, banner in enumerate(result["banners"]):
-            self.download_banner(banner["src"], f"banner_{i}.png")
+            full_url = urljoin(self.base_url, banner["src"])
+            self.download_banner(full_url, f"banner_{i}.png")
 
-        self.write_to_google_sheet(result["banners"])
+        try:
+            self.write_to_google_sheet(result["banners"])
+        except Exception as e:
+            print(f"❌ スプレッドシート書き込み失敗: {e}")
+
         print("🎉 完了！")
 
 
