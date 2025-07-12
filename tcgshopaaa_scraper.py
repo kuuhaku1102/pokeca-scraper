@@ -41,6 +41,10 @@ def normalize_url(url: str) -> str:
     if url.startswith("/"):
         url = urljoin(BASE_URL, url)
     parts = urlparse(url)
+    normalized = f"{parts.scheme}://{parts.netloc}{parts.path}"
+    if parts.query:
+        normalized += f"?{parts.query}"
+    return normalized
     return f"{parts.scheme}://{parts.netloc}{parts.path}"
 
 
