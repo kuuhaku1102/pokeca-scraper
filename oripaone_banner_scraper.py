@@ -53,51 +53,33 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            print("⏳ 初期ロード後、スライド表示を強制スクロール中...")
+            print("⏳ ページ読み込み完了、JavaScriptでバナー一覧を抽出中...")
 
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(5000)  # DOM安定化のための待機
 
-            # 🔽 スライドエリアをスクロールして全バナーを強制表示
-            page.evaluate("""
-                const slider = document.querySelector('.overflow-hidden .flex');
-                if (slider) {
-                    let i = 0;
-                    const step = 300;
-                    const totalWidth = slider.scrollWidth;
-                    const interval = setInterval(() => {
-                        slider.scrollLeft += step;
-                        i += step;
-                        if (i >= totalWidth) clearInterval(interval);
-                    }, 100);
+            # JavaScriptで全スライドのimgとhrefを抽出
+            banners = page.evaluate("""
+                () => {
+                    return Array.from(document.querySelectorAll('[aria-roledescription="slide"] img'))
+                        .map(img => {
+                            const src = img.getAttribute('src');
+                            const href = img.closest('a')?.href || null;
+                            return { src, href };
+                        });
                 }
             """)
 
-            # スクロール後の描画待機
-            page.wait_for_timeout(5000)
+            print(f"🖼️ JSで取得したバナー数: {len(banners)}")
 
-            # 🔽 スライドをすべて取得
-            slides = page.query_selector_all('.overflow-hidden [aria-roledescription="slide"]')
-            print(f"🧩 スライド数: {len(slides)}")
-
-            for slide in slides:
-                img = slide.query_selector("img")
-                if not img:
-                    continue
-                src = img.get_attribute("src")
+            for banner in banners:
+                src = banner["src"]
+                href = banner["href"] or BASE_URL
                 if not src:
                     continue
                 full_src = urljoin(BASE_URL, src)
+                full_href = urljoin(BASE_URL, href)
 
-                # <a>タグのhrefを取得（なければ BASE_URL）
-                href = img.evaluate("""
-                    (img) => {
-                        const a = img.closest('a');
-                        return a ? a.href : null;
-                    }
-                """)
-                full_href = urljoin(BASE_URL, href) if href else BASE_URL
-
-                # 重複チェックは一時的に無効化
+                # 重複チェック一時無効
                 rows.append([full_src, full_href])
 
         except Exception as e:
