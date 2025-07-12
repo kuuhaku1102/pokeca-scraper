@@ -72,9 +72,9 @@ def scrape_banners(existing_urls: set):
                 href = link.get_attribute("href") if link else BASE_URL
                 full_href = urljoin(BASE_URL, href)
 
-                if full_src not in existing_urls:
-                    rows.append([full_src, full_href])
-                    existing_urls.add(full_src)
+                # if full_src not in existing_urls:  # ← コメントアウト
+                rows.append([full_src, full_href])
+                # existing_urls.add(full_src)
 
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
