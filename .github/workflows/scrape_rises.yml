@@ -8,6 +8,9 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    env:
+      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+      SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
