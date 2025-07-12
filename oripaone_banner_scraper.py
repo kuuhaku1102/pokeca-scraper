@@ -57,12 +57,18 @@ def scrape_banners(existing_urls: set):
 
             page.wait_for_timeout(5000)  # DOM安定化のための待機
 
-            # JavaScriptで全スライドのimgとhrefを抽出
+            # JavaScriptで全スライドのsrcset/srcとhrefを抽出
             banners = page.evaluate("""
                 () => {
                     return Array.from(document.querySelectorAll('[aria-roledescription="slide"] img'))
                         .map(img => {
-                            const src = img.getAttribute('src');
+                            const srcset = img.getAttribute('srcset');
+                            let src = null;
+                            if (srcset) {
+                                src = srcset.split(',')[0].split(' ')[0].trim(); // 1xのみ
+                            } else {
+                                src = img.getAttribute('src');
+                            }
                             const href = img.closest('a')?.href || null;
                             return { src, href };
                         });
@@ -79,7 +85,7 @@ def scrape_banners(existing_urls: set):
                 full_src = urljoin(BASE_URL, src)
                 full_href = urljoin(BASE_URL, href)
 
-                # 重複チェック一時無効
+                # 重複チェックを一時的に無効化
                 rows.append([full_src, full_href])
 
         except Exception as e:
