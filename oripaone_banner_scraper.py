@@ -53,34 +53,18 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            print("⏳ 初期ロード後、画像待機中（最大60秒）...")
+            print("⏳ 初期ロード後、スライド要素を探索中...")
 
-            page.wait_for_timeout(5000)  # 初期猶予
+            page.wait_for_timeout(5000)
 
-            # 🔽 横スクロールして全スライドを表示させる
-            page.evaluate("""
-                const slider = document.querySelector('.overflow-hidden .flex');
-                if (slider) {
-                    slider.scrollLeft = slider.scrollWidth;
-                }
-            """)
-            page.wait_for_timeout(3000)  # スクロール後のDOM展開待ち
+            # スライダー領域のスライドすべてを取得
+            slides = page.query_selector_all('.overflow-hidden [aria-roledescription="slide"]')
+            print(f"🧩 スライド数: {len(slides)}")
 
-            # 🔽 imgが8枚以上になるまで最大50秒待機
-            try:
-                page.wait_for_function(
-                    "document.querySelectorAll('.overflow-hidden [aria-roledescription=\"slide\"] img').length >= 8",
-                    timeout=50000
-                )
-                print("✅ バナーimgタグが8件以上検出されました")
-            except:
-                print("⚠️ バナーimgタグが8件未満でしたが続行します")
-
-            # 🔽 スライドバナー内のimgのみ取得
-            imgs = page.query_selector_all('.overflow-hidden [aria-roledescription="slide"] img')
-            print(f"🖼️ 検出されたバナーimgタグ数: {len(imgs)}")
-
-            for img in imgs:
+            for slide in slides:
+                img = slide.query_selector("img")
+                if not img:
+                    continue
                 src = img.get_attribute("src")
                 if not src:
                     continue
