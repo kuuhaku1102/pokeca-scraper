@@ -47,29 +47,37 @@ def scrape_banners(existing_urls: set):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
-        try:
-            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_timeout(5000)
-            slide_links = page.query_selector_all(".swiper-wrapper .swiper-slide")
 
-            for slide in slide_links:
+        try:
+            # User-Agent 偽装（Cloudflareなどの対策）
+            page.set_user_agent(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            )
+
+            # ページ読み込み
+            page.goto(TARGET_URL, timeout=60000, wait_until="load")
+            page.wait_for_timeout(8000)  # Swiperの初期化待ち
+
+            # Swiperスライド取得
+            slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
+
+            for slide in slides:
                 img = slide.query_selector("img")
-                parent_a = slide  # slide自体が<a>要素
+                link_href = slide.get_attribute("href") or TARGET_URL
+
                 if not img:
                     continue
 
                 src = img.get_attribute("src")
-                href = parent_a.get_attribute("href") if parent_a else TARGET_URL
-
                 if not src:
                     continue
 
-                src = urljoin(BASE_URL, src)
-                href = urljoin(BASE_URL, href)
+                full_src = urljoin(BASE_URL, src)
+                full_href = urljoin(BASE_URL, link_href)
 
-                if src not in existing_urls:
-                    rows.append([src, href])
-                    existing_urls.add(src)
+                if full_src not in existing_urls:
+                    rows.append([full_src, full_href])
+                    existing_urls.add(full_src)
 
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
