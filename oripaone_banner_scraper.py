@@ -53,11 +53,29 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            print("⏳ 初期ロード後、スライド要素を探索中...")
+            print("⏳ 初期ロード後、スライド表示を強制スクロール中...")
 
+            page.wait_for_timeout(3000)
+
+            # 🔽 スライドエリアをスクロールして全バナーを強制表示
+            page.evaluate("""
+                const slider = document.querySelector('.overflow-hidden .flex');
+                if (slider) {
+                    let i = 0;
+                    const step = 300;
+                    const totalWidth = slider.scrollWidth;
+                    const interval = setInterval(() => {
+                        slider.scrollLeft += step;
+                        i += step;
+                        if (i >= totalWidth) clearInterval(interval);
+                    }, 100);
+                }
+            """)
+
+            # スクロール後の描画待機
             page.wait_for_timeout(5000)
 
-            # スライダー領域のスライドすべてを取得
+            # 🔽 スライドをすべて取得
             slides = page.query_selector_all('.overflow-hidden [aria-roledescription="slide"]')
             print(f"🧩 スライド数: {len(slides)}")
 
@@ -79,7 +97,7 @@ def scrape_banners(existing_urls: set):
                 """)
                 full_href = urljoin(BASE_URL, href) if href else BASE_URL
 
-                # 重複チェックを一時的に無効化
+                # 重複チェックは一時的に無効化
                 rows.append([full_src, full_href])
 
         except Exception as e:
