@@ -1,36 +1,21 @@
 name: Scrape OripaOne Banners
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # JST 9:00
   workflow_dispatch:
-  push:
-    branches: [ main ]
-
-permissions:
-  contents: write
-  issues: write
+  schedule:
+    - cron: '0 */6 * * *'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
@@ -38,43 +23,11 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Playwright browsers
-        run: playwright install chromium
-
-      - name: Run scraper
-        run: python oripaone_banner_scraper.py
-
-      - name: Upload banner data
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: banner-data-${{ github.run_number }}
-          path: |
-            banner_data.json
-            banners/
-          retention-days: 30
-
-      - name: Commit and push if changes
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add -A
-          if [ -n "$(git diff --cached)" ]; then
-            git commit -m "Update banner data: $(date)"
-            git push
-          else
-            echo "No changes to commit"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          python -m playwright install --with-deps
 
-      - name: Create issue if scraping fails
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: 'Banner scraping failed',
-              body: 'The scheduled banner scraping job has failed. Please check the logs for details.',
-              labels: ['bug', 'scraping']
-            })
+      - name: Run banner scraper
+        env:
+          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+        run: python orikuji_banner_scraper.py
