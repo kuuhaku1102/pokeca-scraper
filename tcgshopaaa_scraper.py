@@ -87,7 +87,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         print("🔍 tcgshopaaa.com スクレイピング開始...")
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('form[id^="gacha-form-"]', timeout=60000)
+            page.wait_for_selector('form[id^="gacha-form-"]', timeout=60000, state="attached")
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
