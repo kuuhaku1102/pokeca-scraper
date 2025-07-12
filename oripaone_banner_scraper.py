@@ -55,29 +55,37 @@ def scrape_banners(existing_urls: set):
             page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(5000)
 
-            # より信頼性の高いセレクタ例: img[alt] を使う
-            page.wait_for_selector('img[alt]', state="attached", timeout=15000)
-            images = page.query_selector_all('img[alt]')
-            print(f"🖼️ 検出された画像数: {len(images)}")
+            # すべてのimgと、親リンクをJSで取得
+            image_data = page.evaluate('''() => {
+                const imgs = Array.from(document.querySelectorAll("img"));
+                return imgs.map(img => {
+                    const src = img.getAttribute("src") || "";
+                    const link = img.closest("a");
+                    const href = link ? link.href : "";
+                    return { src, href };
+                });
+            }''')
 
-            for img in images:
-                src = img.get_attribute("src")
-                print(f"🔗 画像URL: {src}")
+            print(f"🖼️ 検出された画像数: {len(image_data)}")
+
+            for item in image_data:
+                src = item["src"]
+                href = item["href"] or TARGET_URL
+
+                if not src:
+                    continue
+
+                full_src = urljoin(BASE_URL, src)
+                full_href = urljoin(BASE_URL, href)
+
+                if full_src not in existing_urls:
+                    rows.append([full_src, full_href])
+                    existing_urls.add(full_src)
 
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
             browser.close()
             return rows
-
-        for img in images:
-            src = img.get_attribute("src") or img.get_attribute("data-src") or ""
-            if not src:
-                continue
-            src = urljoin(BASE_URL, src)
-            href = TARGET_URL  # 画像のリンク先が必要ならここで取得
-            if src not in existing_urls:
-                rows.append([src, TARGET_URL])  # B列には TARGET_URL を固定で出力
-                existing_urls.add(src)
 
         browser.close()
 
