@@ -54,12 +54,35 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            print("⏳ ページ読み込み完了、スライド操作を開始...")
-
+            print("⏳ ページ読み込み完了、スライド移動開始...")
             page.wait_for_timeout(3000)
 
-            # 最大20回スライドを送りながら画像を収集
-            for i in range(20):
+            # スライド要素と幅を取得
+            info = page.evaluate("""
+                () => {
+                    const slides = document.querySelectorAll('[aria-roledescription="slide"]');
+                    const container = document.querySelector('.overflow-hidden .flex');
+                    const slideWidth = slides[0]?.offsetWidth || 320;
+                    return { count: slides.length, width: slideWidth };
+                }
+            """)
+
+            total = info["count"]
+            width = info["width"]
+            print(f"🎞️ スライド枚数: {total}, 1枚あたり幅: {width}px")
+
+            for i in range(total):
+                page.evaluate(f"""
+                    () => {{
+                        const el = document.querySelector('.overflow-hidden .flex');
+                        if (el) {{
+                            el.style.transform = "translate3d(-{width * i}px, 0px, 0px)";
+                        }}
+                    }}
+                """)
+                page.wait_for_timeout(800)
+
+                # 現在表示中のスライド画像を取得
                 banners = page.evaluate("""
                     () => {
                         return Array.from(document.querySelectorAll('[aria-roledescription="slide"] img')).map(img => {
@@ -85,19 +108,6 @@ def scrape_banners(existing_urls: set):
                     full_href = urljoin(BASE_URL, href)
                     rows.append([full_src, full_href])
                     seen_srcs.add(src)
-
-                # 次へボタンを探してクリック（存在すれば）
-                next_button = page.query_selector('button[aria-label="次へ"], .swiper-button-next, .slick-next')
-                if next_button:
-                    try:
-                        next_button.click()
-                        page.wait_for_timeout(1000)  # スライド切り替え待機
-                    except:
-                        print("⚠️ 次へボタンクリック失敗")
-                        break
-                else:
-                    print("⏹️ 次へボタンが見つかりません、終了")
-                    break
 
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
