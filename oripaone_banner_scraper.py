@@ -56,6 +56,8 @@ def scrape_banners(existing_urls: set):
             # "load" イベントまで待機してからスライド要素を取得する
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
             page.wait_for_timeout(5000)
+            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
+            # バナーのスライド要素が表示されるまで待機
             page.wait_for_selector('div[role="group"][aria-roledescription="slide"]')
             slides = page.query_selector_all('div[role="group"][aria-roledescription="slide"]')
         except Exception as e:
