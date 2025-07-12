@@ -10,9 +10,6 @@ from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://rises.jp/product"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit"
-
 SHEET_NAME = "その他"
 
 
@@ -68,7 +65,7 @@ def parse_items(page) -> List[dict]:
                 const title = img ? (img.getAttribute('alt') || '').trim() : '';
                 let pt = '';
                 const span = card.querySelector('span.gacha-price');
-                if (span) pt = span.textContent.replace(/\s+/g, '');
+                if (span) pt = span.textContent.replace(/\\s+/g, '');
                 results.push({title, image, url, pt});
             });
             return results;
@@ -90,16 +87,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         )
         print("🔍 rises.jp スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=120000)
-            page.wait_for_load_state("networkidle", timeout=120000)
+            page.goto(BASE_URL, timeout=120000, wait_until="networkidle")
             page.wait_for_selector('div.gacha-item', timeout=120000)
-        page = browser.new_page()
-        print("🔍 rises.jp スクレイピング開始...")
-        try:
-            page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
-            page.wait_for_selector('div.gacha-item', timeout=120000)
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('div.gacha-item', timeout=60000)
         except Exception as exc:
             html = page.content()
             with open("rises_debug.html", "w", encoding="utf-8") as f:
