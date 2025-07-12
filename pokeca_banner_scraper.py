@@ -46,24 +46,19 @@ def scrape_banners(existing_urls: set):
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
 
         try:
-            # User-Agent 偽装（Cloudflareなどの対策）
-            page.set_user_agent(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-            )
-
-            # ページ読み込み
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            page.wait_for_timeout(8000)  # Swiperの初期化待ち
+            page.wait_for_timeout(8000)
 
-            # Swiperスライド取得
             slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
-
             for slide in slides:
                 img = slide.query_selector("img")
-                link_href = slide.get_attribute("href") or TARGET_URL
+                href = slide.get_attribute("href") or TARGET_URL
 
                 if not img:
                     continue
@@ -73,7 +68,7 @@ def scrape_banners(existing_urls: set):
                     continue
 
                 full_src = urljoin(BASE_URL, src)
-                full_href = urljoin(BASE_URL, link_href)
+                full_href = urljoin(BASE_URL, href)
 
                 if full_src not in existing_urls:
                     rows.append([full_src, full_href])
