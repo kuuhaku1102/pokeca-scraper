@@ -59,19 +59,16 @@ def scrape_banners(existing_urls: set):
 
         for slide in slides:
             img = slide.query_selector("img")
-            link = slide.query_selector("a")
 
             if not img:
                 continue
 
             src = img.get_attribute("src") or ""
-            href = link.get_attribute("href") if link else ""
-
             if not src:
                 continue
 
             src = urljoin(BASE_URL, src)
-            href = urljoin(BASE_URL, href) if href else TARGET_URL
+            href = BASE_URL  # B列は常に https://dopa-game.jp に固定
 
             if src not in existing_urls:
                 rows.append([src, href])
