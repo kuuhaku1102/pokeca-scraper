@@ -43,6 +43,7 @@ def fetch_existing_image_urls(sheet) -> set:
 def scrape_banners(existing_urls: set):
     print("🔍 Playwright によるスクレイピング開始...")
     rows = []
+    seen_srcs = set()
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -53,40 +54,50 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            print("⏳ ページ読み込み完了、JavaScriptでバナー一覧を抽出中...")
+            print("⏳ ページ読み込み完了、スライド操作を開始...")
 
-            page.wait_for_timeout(5000)  # DOM安定化のための待機
+            page.wait_for_timeout(3000)
 
-            # JavaScriptで全スライドのsrcset/srcとhrefを抽出
-            banners = page.evaluate("""
-                () => {
-                    return Array.from(document.querySelectorAll('[aria-roledescription="slide"] img'))
-                        .map(img => {
+            # 最大20回スライドを送りながら画像を収集
+            for i in range(20):
+                banners = page.evaluate("""
+                    () => {
+                        return Array.from(document.querySelectorAll('[aria-roledescription="slide"] img')).map(img => {
                             const srcset = img.getAttribute('srcset');
                             let src = null;
                             if (srcset) {
-                                src = srcset.split(',')[0].split(' ')[0].trim(); // 1xのみ
+                                src = srcset.split(',')[0].split(' ')[0].trim(); // 1x
                             } else {
                                 src = img.getAttribute('src');
                             }
                             const href = img.closest('a')?.href || null;
                             return { src, href };
                         });
-                }
-            """)
+                    }
+                """)
 
-            print(f"🖼️ JSで取得したバナー数: {len(banners)}")
+                for banner in banners:
+                    src = banner["src"]
+                    href = banner["href"] or BASE_URL
+                    if not src or src in seen_srcs or src in existing_urls:
+                        continue
+                    full_src = urljoin(BASE_URL, src)
+                    full_href = urljoin(BASE_URL, href)
+                    rows.append([full_src, full_href])
+                    seen_srcs.add(src)
 
-            for banner in banners:
-                src = banner["src"]
-                href = banner["href"] or BASE_URL
-                if not src:
-                    continue
-                full_src = urljoin(BASE_URL, src)
-                full_href = urljoin(BASE_URL, href)
-
-                # 重複チェックを一時的に無効化
-                rows.append([full_src, full_href])
+                # 次へボタンを探してクリック（存在すれば）
+                next_button = page.query_selector('button[aria-label="次へ"], .swiper-button-next, .slick-next')
+                if next_button:
+                    try:
+                        next_button.click()
+                        page.wait_for_timeout(1000)  # スライド切り替え待機
+                    except:
+                        print("⚠️ 次へボタンクリック失敗")
+                        break
+                else:
+                    print("⏹️ 次へボタンが見つかりません、終了")
+                    break
 
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
