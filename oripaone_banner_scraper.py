@@ -1,168 +1,108 @@
-# oripaone_banner_scraper.py
-import asyncio
-import json
 import os
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional
-from urllib.parse import urljoin, urlparse
+import base64
+from urllib.parse import urljoin
 
-import requests
-from playwright.async_api import async_playwright
-from bs4 import BeautifulSoup
+import gspread
+from google.oauth2.service_account import Credentials
+from playwright.sync_api import sync_playwright
+
+BASE_URL = "https://oripaone.jp"
+TARGET_URL = BASE_URL
+SHEET_NAME = "news"
+SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
 
-class OripaOneBannerScraper:
-    def __init__(self):
-        self.base_url = "https://oripaone.jp/"
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        self.session = requests.Session()
-        self.session.headers.update(self.headers)
-        
-    async def scrape_with_playwright(self) -> Dict:
-        """Playwrightを使用してバナー情報を取得"""
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(
-                user_agent=self.headers['User-Agent'],
-                viewport={'width': 1920, 'height': 1080}
-            )
-            
-            page = await context.new_page()
-            
-            try:
-                # ページにアクセス
-                await page.goto(self.base_url, wait_until='networkidle', timeout=30000)
-                
-                # Cloudflareのチェックを待機
-                await page.wait_for_timeout(5000)
-                
-                # バナー画像を取得
-                banners = await page.evaluate('''
-                    () => {
-                        const banners = [];
-                        
-                        // メインバナー（大きな画像）
-                        const mainBanners = document.querySelectorAll('img[class*="aspect-"]');
-                        mainBanners.forEach(img => {
-                            if (img.src && img.src.includes('banners')) {
-                                banners.push({
-                                    type: 'main_banner',
-                                    url: img.src,
-                                    alt: img.alt || '',
-                                    className: img.className,
-                                    width: img.naturalWidth,
-                                    height: img.naturalHeight
-                                });
-                            }
-                        });
-                        
-                        // その他のプロモーション画像
-                        const allImages = document.querySelectorAll('img');
-                        allImages.forEach(img => {
-                            if (img.src && (
-                                img.src.includes('alert.png') ||
-                                img.src.includes('coin.png') ||
-                                img.src.includes('bingo') ||
-                                img.src.includes('banners')
-                            )) {
-                                banners.push({
-                                    type: 'promo_image',
-                                    url: img.src,
-                                    alt: img.alt || '',
-                                    className: img.className,
-                                    width: img.naturalWidth,
-                                    height: img.naturalHeight
-                                });
-                            }
-                        });
-                        
-                        return banners;
-                    }
-                ''')
-                
-                # 重複を削除
-                unique_banners = []
-                seen_urls = set()
-                for banner in banners:
-                    if banner['url'] not in seen_urls:
-                        unique_banners.append(banner)
-                        seen_urls.add(banner['url'])
-                
-                # ページタイトルとURL情報を追加
-                page_info = {
-                    'title': await page.title(),
-                    'url': page.url,
-                    'timestamp': datetime.now().isoformat(),
-                    'banners': unique_banners
-                }
-                
-                return page_info
-                
-            except Exception as e:
-                print(f"エラーが発生しました: {e}")
-                return {'error': str(e), 'banners': []}
-                
-            finally:
-                await browser.close()
-    
-    def download_banner(self, banner_url: str, filename: str) -> bool:
-        """バナー画像をダウンロード"""
+def save_credentials() -> str:
+    encoded = os.environ.get("GSHEET_JSON", "")
+    if not encoded:
+        raise RuntimeError("GSHEET_JSON environment variable is missing")
+    with open("credentials.json", "w") as f:
+        f.write(base64.b64decode(encoded).decode("utf-8"))
+    return "credentials.json"
+
+
+def get_sheet():
+    creds_path = save_credentials()
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+    client = gspread.authorize(creds)
+    if not SPREADSHEET_URL:
+        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
+    spreadsheet = client.open_by_url(SPREADSHEET_URL)
+    return spreadsheet.worksheet(SHEET_NAME)
+
+
+def fetch_existing_image_urls(sheet) -> set:
+    records = sheet.get_all_values()
+    urls = set()
+    for row in records[1:]:
+        if len(row) >= 1:
+            urls.add(row[0].strip())
+    return urls
+
+
+def scrape_banners(existing_urls: set):
+    print("🔍 Playwright によるスクレイピング開始...")
+    rows = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
         try:
-            response = self.session.get(banner_url, timeout=10)
-            response.raise_for_status()
-            
-            # 保存ディレクトリを作成
-            os.makedirs('banners', exist_ok=True)
-            
-            # ファイルを保存
-            with open(f'banners/{filename}', 'wb') as f:
-                f.write(response.content)
-            
-            print(f"バナーをダウンロードしました: {filename}")
-            return True
-            
+            page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
+            page.wait_for_timeout(5000)
+
+            # JavaScriptで全imgとその親のaを取得
+            image_data = page.evaluate('''() => {
+                const imgs = Array.from(document.querySelectorAll("img"));
+                return imgs.map(img => {
+                    const src = img.getAttribute("src") || "";
+                    const link = img.closest("a");
+                    const href = link ? link.href : "";
+                    return { src, href };
+                });
+            }''')
+
+            print(f"🖼️ 検出された画像数: {len(image_data)}")
+
+            for item in image_data:
+                src = item["src"]
+                href = item["href"] or TARGET_URL
+
+                if not src:
+                    continue
+
+                full_src = urljoin(BASE_URL, src)
+                full_href = urljoin(BASE_URL, href)
+
+                if full_src not in existing_urls:
+                    rows.append([full_src, full_href])
+                    existing_urls.add(full_src)
+
         except Exception as e:
-            print(f"バナーのダウンロードに失敗しました: {e}")
-            return False
-    
-    def save_banner_data(self, data: Dict, filename: str = 'banner_data.json'):
-        """バナー情報をJSONファイルに保存"""
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"バナー情報を保存しました: {filename}")
-    
-    async def run(self):
-        """スクレイピングを実行"""
-        print("オリパワンのバナーをスクレイピング中...")
-        
-        # バナー情報を取得
-        banner_data = await self.scrape_with_playwright()
-        
-        if 'error' in banner_data:
-            print(f"スクレイピングエラー: {banner_data['error']}")
-            return
-        
-        # バナー情報を保存
-        self.save_banner_data(banner_data)
-        
-        # バナー画像をダウンロード
-        for i, banner in enumerate(banner_data.get('banners', [])):
-            if banner['type'] == 'main_banner':
-                # メインバナーのみダウンロード
-                filename = f"main_banner_{i}.png"
-                self.download_banner(banner['url'], filename)
-        
-        print("スクレイピング完了!")
-        return banner_data
+            print(f"🛑 読み込み失敗: {e}")
+            browser.close()
+            return rows
+
+        browser.close()
+
+    print(f"✅ {len(rows)} 件の新規バナー")
+    return rows
 
 
-async def main():
-    scraper = OripaOneBannerScraper()
-    await scraper.run()
+def main() -> None:
+    sheet = get_sheet()
+    existing = fetch_existing_image_urls(sheet)
+    rows = scrape_banners(existing)
+    if not rows:
+        print("📭 新規データなし")
+        return
+    sheet.append_rows(rows, value_input_option="USER_ENTERED")
+    print(f"📥 {len(rows)} 件追記完了")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
