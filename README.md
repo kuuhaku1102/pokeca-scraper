@@ -443,3 +443,18 @@ python tora_net_oripa_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_tora_net_oripa.yml` runs this scraper automatically.
+
+## Gachaking Oripa Scraper
+
+The `gachaking_oripa_scraper.py` script collects gacha information from [gachaking-oripa.com](https://gachaking-oripa.com/index). It uses Playwright to scrape the listing page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python gachaking_oripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_gachaking_oripa.yml` runs this scraper automatically.
