@@ -52,13 +52,9 @@ def scrape_banners(existing_urls: set):
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         try:
-            # ネットワークが長時間アイドル状態にならない場合があるため
-            # "load" イベントまで待機してからスライド要素を取得する
-            page.goto(TARGET_URL, timeout=60000, wait_until="load")
+            page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(5000)
-            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
-            # バナーのスライド要素が表示されるまで待機
-            page.wait_for_selector('div[role="group"][aria-roledescription="slide"]')
+            page.wait_for_selector('div[role="group"][aria-roledescription="slide"]', timeout=10000)
             slides = page.query_selector_all('div[role="group"][aria-roledescription="slide"]')
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
