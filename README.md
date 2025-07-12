@@ -57,6 +57,22 @@ python dokkan_scraper.py
 
 The workflow `.github/workflows/scrape_dokkan.yml` runs this scraper weekly.
 
+
+## Dokkan Banner Scraper
+
+The `dokkan_banner_scraper.py` script retrieves banner image URLs from [dokkan-toreca.com](https://dokkan-toreca.com/). It uses Playwright to collect the image URL from the top page slider and appends it to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python dokkan_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_dokkan_banner.yml` runs this scraper automatically.
+
 ## Spark Oripa Scraper
 
 The `sparkoripa_scraper.py` script collects gacha data from [sparkoripa.jp](https://sparkoripa.jp/). It uses `requests` and `BeautifulSoup` to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet.
