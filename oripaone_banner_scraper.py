@@ -55,32 +55,26 @@ def scrape_banners(existing_urls: set):
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
             page.wait_for_timeout(5000)
 
-            # スライド切り替えボタン取得（例: .slick-next または .swiper-button-next）
-            next_button = page.query_selector(".slick-next, .swiper-button-next")
+            slides = page.query_selector_all('[aria-roledescription="slide"]')
 
-            seen_srcs = set()
-            for _ in range(15):  # 最大15回分スライドを巡回
-                slides = page.query_selector_all("[aria-roledescription='slide']")
-                for slide in slides:
-                    img = slide.query_selector("img")
-                    if not img:
-                        continue
-                    src = img.get_attribute("src")
-                    if not src:
-                        continue
+            for slide in slides:
+                # 画像を取得
+                img = slide.query_selector("img")
+                if not img:
+                    continue
+                src = img.get_attribute("src")
+                if not src:
+                    continue
+                full_src = urljoin(BASE_URL, src)
 
-                    full_src = urljoin(BASE_URL, src)
-                    if full_src in seen_srcs or full_src in existing_urls:
-                        continue
+                # aタグのhrefを取得（存在しなければBASE_URL）
+                link = slide.query_selector("a")
+                href = link.get_attribute("href") if link else BASE_URL
+                full_href = urljoin(BASE_URL, href)
 
-                    rows.append([full_src, BASE_URL])
-                    seen_srcs.add(full_src)
+                if full_src not in existing_urls:
+                    rows.append([full_src, full_href])
                     existing_urls.add(full_src)
-
-                # 次のスライドへ
-                if next_button:
-                    next_button.click()
-                    page.wait_for_timeout(1000)  # 次のスライド読み込み待機
 
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
