@@ -433,6 +433,12 @@ Run locally:
 pip install -r requirements.txt
 export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
 export SPREADSHEET_URL=<SPREADSHEET_URL>
+python rises_scraper.py
+```
+
+If scraping fails, the page HTML is saved to `rises_debug.html` for inspection.
+
+The workflow `.github/workflows/scrape_rises.yml` runs this scraper automatically.
 
 python rises_scraper.py
 ```

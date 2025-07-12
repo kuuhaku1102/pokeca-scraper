@@ -10,7 +10,9 @@ from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://rises.jp/product"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
+
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit"
+
 SHEET_NAME = "その他"
 
 
@@ -79,6 +81,18 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/115.0 Safari/537.36"
+            )
+        )
+        print("🔍 rises.jp スクレイピング開始...")
+        try:
+            page.goto(BASE_URL, timeout=120000)
+            page.wait_for_load_state("networkidle", timeout=120000)
+            page.wait_for_selector('div.gacha-item', timeout=120000)
         page = browser.new_page()
         print("🔍 rises.jp スクレイピング開始...")
         try:
