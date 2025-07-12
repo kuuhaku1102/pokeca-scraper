@@ -58,7 +58,6 @@ def scrape_banners(existing_urls: set):
             slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
             for slide in slides:
                 img = slide.query_selector("img")
-                href = slide.get_attribute("href") or TARGET_URL
 
                 if not img:
                     continue
@@ -68,7 +67,7 @@ def scrape_banners(existing_urls: set):
                     continue
 
                 full_src = urljoin(BASE_URL, src)
-                full_href = urljoin(BASE_URL, href)
+                full_href = BASE_URL  # ← B列には常に BASE_URL を出力
 
                 if full_src not in existing_urls:
                     rows.append([full_src, full_href])
