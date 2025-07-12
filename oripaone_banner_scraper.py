@@ -55,9 +55,15 @@ def scrape_banners(existing_urls: set):
             page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(5000)
 
-            # プレーンに画像セレクタで待つ
-            page.wait_for_selector('img.aspect-\\[4\\/1\\]', timeout=15000)
-            images = page.query_selector_all('img.aspect-\\[4\\/1\\]')
+            # より信頼性の高いセレクタ例: img[alt] を使う
+            page.wait_for_selector('img[alt]', state="attached", timeout=15000)
+            images = page.query_selector_all('img[alt]')
+            print(f"🖼️ 検出された画像数: {len(images)}")
+
+            for img in images:
+                src = img.get_attribute("src")
+                print(f"🔗 画像URL: {src}")
+
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
             browser.close()
