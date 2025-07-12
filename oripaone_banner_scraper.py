@@ -53,20 +53,39 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
+            print("⏳ 初期ロード後、画像待機中（最大60秒）...")
+
+            # 初期猶予
             page.wait_for_timeout(5000)
 
+            # 画像が8枚以上読み込まれるのを最大55秒待つ
+            try:
+                page.wait_for_function(
+                    "document.querySelectorAll('img').length >= 8", timeout=55000
+                )
+                print("✅ imgタグが8件以上検出されました")
+            except:
+                print("⚠️ 指定数のimgタグが検出されませんでしたが続行します")
+
             imgs = page.query_selector_all("img")
+            print(f"🖼️ 検出されたimgタグ数: {len(imgs)}")
+
             for img in imgs:
                 src = img.get_attribute("src")
                 if not src:
                     continue
                 full_src = urljoin(BASE_URL, src)
 
-                # 親にaタグがいるかチェック
-                parent = img.evaluate_handle("img => img.closest('a')")
-                href = parent.get_attribute("href") if parent else BASE_URL
-                full_href = urljoin(BASE_URL, href)
+                # <a>タグのhrefを取得（なければ BASE_URL）
+                href = img.evaluate("""
+                    (img) => {
+                        const a = img.closest('a');
+                        return a ? a.href : null;
+                    }
+                """)
+                full_href = urljoin(BASE_URL, href) if href else BASE_URL
 
+                # 重複チェックなしで検証中
                 rows.append([full_src, full_href])
 
         except Exception as e:
