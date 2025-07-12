@@ -1,16 +1,15 @@
 name: Scrape OripaOne Banners
 
 on:
-  # 毎日午前9時に実行（JST）
   schedule:
-    - cron: '0 0 * * *'  # UTC 0:00 = JST 9:00
-
-  # 手動実行を許可
+    - cron: '0 0 * * *'  # JST 9:00
   workflow_dispatch:
-
-  # pushでも実行（テスト用）
   push:
     branches: [ main ]
+
+permissions:
+  contents: write
+  issues: write
 
 jobs:
   scrape:
@@ -39,15 +38,14 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Playwright browsers
-        run: |
-          playwright install chromium
+        run: playwright install chromium
 
       - name: Run scraper
-        run: |
-          python oripaone_banner_scraper.py
+        run: python oripaone_banner_scraper.py
 
       - name: Upload banner data
-        uses: actions/upload-artifact@v4  # ← 🔁 v4 にアップデート
+        if: success()
+        uses: actions/upload-artifact@v4
         with:
           name: banner-data-${{ github.run_number }}
           path: |
