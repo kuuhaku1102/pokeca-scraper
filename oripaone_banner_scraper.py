@@ -57,16 +57,26 @@ def scrape_banners(existing_urls: set):
 
             page.wait_for_timeout(5000)  # 初期猶予
 
+            # 🔽 横スクロールして全スライドを表示させる
+            page.evaluate("""
+                const slider = document.querySelector('.overflow-hidden .flex');
+                if (slider) {
+                    slider.scrollLeft = slider.scrollWidth;
+                }
+            """)
+            page.wait_for_timeout(3000)  # スクロール後のDOM展開待ち
+
+            # 🔽 imgが8枚以上になるまで最大50秒待機
             try:
                 page.wait_for_function(
-                    "document.querySelectorAll('.overflow-hidden [aria-roledescription=\"slide\"] img').length >= 1",
-                    timeout=55000
+                    "document.querySelectorAll('.overflow-hidden [aria-roledescription=\"slide\"] img').length >= 8",
+                    timeout=50000
                 )
-                print("✅ バナーimgタグが検出されました")
+                print("✅ バナーimgタグが8件以上検出されました")
             except:
-                print("⚠️ バナーimgタグが検出されませんでしたが続行します")
+                print("⚠️ バナーimgタグが8件未満でしたが続行します")
 
-            # スライドバナー内のimgのみ取得
+            # 🔽 スライドバナー内のimgのみ取得
             imgs = page.query_selector_all('.overflow-hidden [aria-roledescription="slide"] img')
             print(f"🖼️ 検出されたバナーimgタグ数: {len(imgs)}")
 
@@ -85,7 +95,7 @@ def scrape_banners(existing_urls: set):
                 """)
                 full_href = urljoin(BASE_URL, href) if href else BASE_URL
 
-                # 重複チェック無効中（本番は有効化してOK）
+                # 重複チェックを一時的に無効化
                 rows.append([full_src, full_href])
 
         except Exception as e:
