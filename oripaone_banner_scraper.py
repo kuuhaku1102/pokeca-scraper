@@ -52,19 +52,24 @@ def scrape_banners(existing_urls: set):
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         try:
-            page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            page.wait_for_timeout(5000)
-            slides = page.query_selector_all('div[aria-roledescription="slide"]')
+            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
+            # バナーのスライド要素が表示されるまで待機
+            page.wait_for_selector('div[role="group"][aria-roledescription="slide"]')
+            slides = page.query_selector_all('div[role="group"][aria-roledescription="slide"]')
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
             browser.close()
             return rows
 
         for slide in slides:
+            # スクロールして lazy-load を確実に読み込む
+            slide.scroll_into_view_if_needed()
             img = slide.query_selector("img")
             link = slide.query_selector("a")
 
-            src = img.get_attribute("src") if img else ""
+            src = ""
+            if img:
+                src = img.get_attribute("src") or img.get_attribute("data-src") or ""
             href = link.get_attribute("href") if link else ""
 
             if not src:
