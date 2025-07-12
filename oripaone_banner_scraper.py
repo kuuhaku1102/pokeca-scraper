@@ -55,26 +55,19 @@ def scrape_banners(existing_urls: set):
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
             page.wait_for_timeout(5000)
 
-            slides = page.query_selector_all('[aria-roledescription="slide"]')
-
-            for slide in slides:
-                # 画像を取得
-                img = slide.query_selector("img")
-                if not img:
-                    continue
+            imgs = page.query_selector_all("img")
+            for img in imgs:
                 src = img.get_attribute("src")
                 if not src:
                     continue
                 full_src = urljoin(BASE_URL, src)
 
-                # aタグのhrefを取得（存在しなければBASE_URL）
-                link = slide.query_selector("a")
-                href = link.get_attribute("href") if link else BASE_URL
+                # 親にaタグがいるかチェック
+                parent = img.evaluate_handle("img => img.closest('a')")
+                href = parent.get_attribute("href") if parent else BASE_URL
                 full_href = urljoin(BASE_URL, href)
 
-                # if full_src not in existing_urls:  # ← コメントアウト
                 rows.append([full_src, full_href])
-                # existing_urls.add(full_src)
 
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
