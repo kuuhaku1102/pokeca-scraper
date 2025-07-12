@@ -45,6 +45,7 @@ def normalize_url(url: str) -> str:
     if parts.query:
         normalized += f"?{parts.query}"
     return normalized
+    return f"{parts.scheme}://{parts.netloc}{parts.path}"
 
 
 def fetch_existing_urls(sheet) -> set:
