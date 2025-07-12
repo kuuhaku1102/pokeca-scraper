@@ -1,49 +1,14 @@
-import base64
 import os
-from urllib.parse import urljoin
+import base64
 
-import gspread
-from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://oripaone.jp"
-TARGET_URL = BASE_URL
-SHEET_NAME = "news"
-SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
+TARGET_URL = "https://oripaone.jp"
+OUTPUT_FILE = "debug_output.html"
 
 
-def save_credentials() -> str:
-    encoded = os.environ.get("GSHEET_JSON", "")
-    if not encoded:
-        raise RuntimeError("GSHEET_JSON environment variable is missing")
-    with open("credentials.json", "w") as f:
-        f.write(base64.b64decode(encoded).decode("utf-8"))
-    return "credentials.json"
-
-
-def get_sheet():
-    creds_path = save_credentials()
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
-    client = gspread.authorize(creds)
-    if not SPREADSHEET_URL:
-        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
-    spreadsheet = client.open_by_url(SPREADSHEET_URL)
-    return spreadsheet.worksheet(SHEET_NAME)
-
-
-def fetch_existing_image_urls(sheet) -> set:
-    records = sheet.get_all_values()
-    return set(row[0].strip() for row in records[1:] if row and row[0].strip())
-
-
-def scrape_banners(existing_urls: set):
-    print("🔍 Playwright によるスクレイピング開始...")
-    rows = []
-    seen_srcs = set()
+def save_html():
+    print("🌐 PlaywrightでページHTMLを取得・保存します...")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -54,80 +19,19 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            print("⏳ ページ読み込み完了、スライド移動開始...")
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(5000)  # 読み込み安定化
 
-            # スライド要素と幅を取得
-            info = page.evaluate("""
-                () => {
-                    const slides = document.querySelectorAll('[aria-roledescription="slide"]');
-                    const container = document.querySelector('.overflow-hidden .flex');
-                    const slideWidth = slides[0]?.offsetWidth || 320;
-                    return { count: slides.length, width: slideWidth };
-                }
-            """)
+            html = page.content()
+            with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+                f.write(html)
 
-            total = info["count"]
-            width = info["width"]
-            print(f"🎞️ スライド枚数: {total}, 1枚あたり幅: {width}px")
-
-            for i in range(total):
-                page.evaluate(f"""
-                    () => {{
-                        const el = document.querySelector('.overflow-hidden .flex');
-                        if (el) {{
-                            el.style.transform = "translate3d(-{width * i}px, 0px, 0px)";
-                        }}
-                    }}
-                """)
-                page.wait_for_timeout(800)
-
-                # 現在表示中のスライド画像を取得
-                banners = page.evaluate("""
-                    () => {
-                        return Array.from(document.querySelectorAll('[aria-roledescription="slide"] img')).map(img => {
-                            const srcset = img.getAttribute('srcset');
-                            let src = null;
-                            if (srcset) {
-                                src = srcset.split(',')[0].split(' ')[0].trim(); // 1x
-                            } else {
-                                src = img.getAttribute('src');
-                            }
-                            const href = img.closest('a')?.href || null;
-                            return { src, href };
-                        });
-                    }
-                """)
-
-                for banner in banners:
-                    src = banner["src"]
-                    href = banner["href"] or BASE_URL
-                    if not src or src in seen_srcs or src in existing_urls:
-                        continue
-                    full_src = urljoin(BASE_URL, src)
-                    full_href = urljoin(BASE_URL, href)
-                    rows.append([full_src, full_href])
-                    seen_srcs.add(src)
+            print(f"✅ HTMLを保存しました: {OUTPUT_FILE}")
 
         except Exception as e:
-            print(f"🛑 読み込み失敗: {e}")
+            print(f"🛑 エラー発生: {e}")
         finally:
             browser.close()
 
-    print(f"✅ {len(rows)} 件の新規バナー")
-    return rows
-
-
-def main() -> None:
-    sheet = get_sheet()
-    existing = fetch_existing_image_urls(sheet)
-    rows = scrape_banners(existing)
-    if not rows:
-        print("📭 新規データなし")
-        return
-    sheet.append_rows(rows, value_input_option="USER_ENTERED")
-    print(f"📥 {len(rows)} 件追記完了")
-
 
 if __name__ == "__main__":
-    main()
+    save_html()
