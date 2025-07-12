@@ -1,11 +1,4 @@
-- name: Upload banner data
-  uses: actions/upload-artifact@v4
-  with:
-    name: banner-data-${{ github.run_number }}
-    path: |
-      banner_data.json
-      banners/
-    retention-days: 30
+import os
 import base64
 from urllib.parse import urljoin
 
@@ -62,7 +55,6 @@ def scrape_banners(existing_urls: set):
             page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(5000)
 
-            # JavaScriptで全imgとその親のaを取得
             image_data = page.evaluate('''() => {
                 const imgs = Array.from(document.querySelectorAll("img"));
                 return imgs.map(img => {
