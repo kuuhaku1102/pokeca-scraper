@@ -1,9 +1,9 @@
-name: Scrape Dopa Banner
+name: Scrape Tora Net Oripa
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */3 * * *'
 
 jobs:
   scrape:
@@ -21,10 +21,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: |
           python -m playwright install --with-deps
 
-      - name: Run banner scraper
+      - name: Run scraper
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
           SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-        run: python dopa_game_banner_scraper.py
+        run: python tora_net_oripa_scraper.py
+
+      - name: Upload debug HTML
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tora_net_oripa_debug
+          path: tora_net_oripa_debug.html

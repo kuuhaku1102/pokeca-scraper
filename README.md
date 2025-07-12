@@ -57,6 +57,22 @@ python dokkan_scraper.py
 
 The workflow `.github/workflows/scrape_dokkan.yml` runs this scraper weekly.
 
+
+## Dokkan Banner Scraper
+
+The `dokkan_banner_scraper.py` script retrieves banner image URLs from [dokkan-toreca.com](https://dokkan-toreca.com/). It uses Playwright to collect the image URL from the top page slider and appends it to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python dokkan_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_dokkan_banner.yml` runs this scraper automatically.
+
 ## Spark Oripa Scraper
 
 The `sparkoripa_scraper.py` script collects gacha data from [sparkoripa.jp](https://sparkoripa.jp/). It uses `requests` and `BeautifulSoup` to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet.
@@ -146,6 +162,54 @@ python dopa_game_banner_scraper.py
 The workflow `.github/workflows/scrape_dopa_banner.yml` runs this scraper automatically.
 
 
+## Oripa Dash Banner Scraper
+
+
+The `oripa_dash_banner_scraper.py` script retrieves banner image URLs from [oripa-dash.com](https://oripa-dash.com/user/packList). It uses Playwright to collect each banner's image URL and link URL from the top slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
+The `oripa_dash_banner_scraper.py` script retrieves banner image URLs from [oripa-dash.com](https://oripa-dash.com/user/packList). It uses Playwright to collect the image URL and site URL from the top slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python oripa_dash_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_oripa_dash_banner.yml` runs this scraper automatically.
+
+## Oripa ex Banner Scraper
+
+The `oripa_ex_banner_scraper.py` script retrieves banner image URLs from [oripa.ex-toreca.com](https://oripa.ex-toreca.com/). It uses Playwright to collect the image URL and link URL from the top slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python oripa_ex_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_oripa_ex_banner.yml` runs this scraper automatically.
+
+## Oripaone Banner Scraper
+
+The `oripaone_banner_scraper.py` script retrieves banner image URLs from [oripaone.jp](https://oripaone.jp/). It uses Playwright to collect the image URL and link URL from the top slider and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python oripaone_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_oripaone_banner.yml` runs this scraper automatically.
+
 ## Ram Oripa Scraper
 
 The `ram_oripa_scraper.py` script gathers gacha information from [ram-oripa.com](https://ram-oripa.com/). It uses Playwright to scrape the top page and collects the title, image URL, detail page URL and PT value. New entries are appended to the `その他` sheet, skipping duplicates.
@@ -191,6 +255,21 @@ python ichica_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_ichica.yml` runs this scraper automatically.
+
+## Ichica Banner Scraper
+
+The `ichica_banner_scraper.py` script retrieves banner image URLs from [ichica.co](https://ichica.co/). It uses Playwright to collect the image URL from the banner carousel (element `#testing`) and appends them to the `news` sheet, skipping entries with a duplicate image URL.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python ichica_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_ichica_banner.yml` runs this scraper automatically.
 
 ## Oripalette Scraper
 
@@ -344,6 +423,9 @@ The workflow `.github/workflows/scrape_jinstudiooripa.yml` runs this scraper aut
 ## Rises Scraper
 
 The `rises_scraper.py` script collects gacha information from [rises.jp](https://rises.jp/product). It uses Playwright to scrape the listing page and extracts the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+## Tora Net Oripa Scraper
+
+The `tora_net_oripa_scraper.py` script collects gacha information from [tora.net-oripa.com](https://tora.net-oripa.com/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
 
 Run locally:
 
@@ -357,3 +439,44 @@ python rises_scraper.py
 If scraping fails, the page HTML is saved to `rises_debug.html` for inspection.
 
 The workflow `.github/workflows/scrape_rises.yml` runs this scraper automatically.
+
+python rises_scraper.py
+```
+
+The workflow `.github/workflows/scrape_rises.yml` runs this scraper automatically.
+
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python tora_net_oripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_tora_net_oripa.yml` runs this scraper automatically.
+
+## Gachaking Oripa Scraper
+
+The `gachaking_oripa_scraper.py` script collects gacha information from [gachaking-oripa.com](https://gachaking-oripa.com/index). It uses Playwright to scrape the listing page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python gachaking_oripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_gachaking_oripa.yml` runs this scraper automatically.
+
+## TCGShopAAA Scraper
+
+The `tcgshopaaa_scraper.py` script collects gacha information from [tcgshopaaa.com](https://tcgshopaaa.com/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python tcgshopaaa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_tcgshopaaa.yml` runs this scraper automatically.

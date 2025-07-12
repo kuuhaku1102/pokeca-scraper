@@ -1,12 +1,12 @@
-import base64
 import os
+import base64
 from urllib.parse import urljoin
 
 import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://dopa-game.jp"
+BASE_URL = "https://iris-toreca.com"
 TARGET_URL = BASE_URL
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
@@ -37,7 +37,11 @@ def get_sheet():
 
 def fetch_existing_image_urls(sheet) -> set:
     records = sheet.get_all_values()
-    return set(row[0].strip() for row in records[1:] if row and row[0].strip())
+    urls = set()
+    for row in records[1:]:
+        if len(row) >= 1:
+            urls.add(row[0].strip())
+    return urls
 
 
 def scrape_banners(existing_urls: set):
@@ -45,13 +49,11 @@ def scrape_banners(existing_urls: set):
     rows = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-        )
+        page = browser.new_page()
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            page.wait_for_timeout(8000)
-            slides = page.query_selector_all(".slick-slide")
+            page.wait_for_timeout(5000)
+            slides = page.query_selector_all(".slick-track .slick-slide")
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
             browser.close()
@@ -59,19 +61,19 @@ def scrape_banners(existing_urls: set):
 
         for slide in slides:
             img = slide.query_selector("img")
+            link = slide.query_selector("a")
 
-            if not img:
-                continue
+            src = img.get_attribute("src") if img else ""
+            href = link.get_attribute("href") if link else ""
 
-            src = img.get_attribute("src") or ""
             if not src:
                 continue
 
             src = urljoin(BASE_URL, src)
-            href = BASE_URL  # B列は常に https://dopa-game.jp に固定
+            href = urljoin(BASE_URL, href) if href else TARGET_URL
 
             if src not in existing_urls:
-                rows.append([src, href])
+                rows.append([src, TARGET_URL])  # ← B列には TARGET_URL を固定で出力
                 existing_urls.add(src)
 
         browser.close()
