@@ -54,30 +54,21 @@ def scrape_banners(existing_urls: set):
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(5000)
-            page.wait_for_selector('div[role="group"][aria-roledescription="slide"]', timeout=10000)
-            slides = page.query_selector_all('div[role="group"][aria-roledescription="slide"]')
+
+            # プレーンに画像セレクタで待つ
+            page.wait_for_selector('img.aspect-\\[4\\/1\\]', timeout=15000)
+            images = page.query_selector_all('img.aspect-\\[4\\/1\\]')
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
             browser.close()
             return rows
 
-        for slide in slides:
-            # スクロールして lazy-load を確実に読み込む
-            slide.scroll_into_view_if_needed()
-            img = slide.query_selector("img")
-            link = slide.query_selector("a")
-
-            src = ""
-            if img:
-                src = img.get_attribute("src") or img.get_attribute("data-src") or ""
-            href = link.get_attribute("href") if link else ""
-
+        for img in images:
+            src = img.get_attribute("src") or img.get_attribute("data-src") or ""
             if not src:
                 continue
-
             src = urljoin(BASE_URL, src)
-            href = urljoin(BASE_URL, href) if href else TARGET_URL
-
+            href = TARGET_URL  # 画像のリンク先が必要ならここで取得
             if src not in existing_urls:
                 rows.append([src, TARGET_URL])  # B列には TARGET_URL を固定で出力
                 existing_urls.add(src)
