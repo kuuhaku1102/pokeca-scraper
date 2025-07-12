@@ -53,23 +53,35 @@ def scrape_banners(existing_urls: set):
 
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            page.wait_for_timeout(8000)
+            page.wait_for_timeout(5000)
 
-            slides = page.query_selector_all("[aria-roledescription='slide']")
-            for slide in slides:
-                img = slide.query_selector("img")
-                if not img:
-                    continue
-                src = img.get_attribute("src")
-                if not src:
-                    continue
+            # スライド切り替えボタン取得（例: .slick-next または .swiper-button-next）
+            next_button = page.query_selector(".slick-next, .swiper-button-next")
 
-                full_src = urljoin(BASE_URL, src)
-                full_href = BASE_URL
+            seen_srcs = set()
+            for _ in range(15):  # 最大15回分スライドを巡回
+                slides = page.query_selector_all("[aria-roledescription='slide']")
+                for slide in slides:
+                    img = slide.query_selector("img")
+                    if not img:
+                        continue
+                    src = img.get_attribute("src")
+                    if not src:
+                        continue
 
-                if full_src not in existing_urls:
-                    rows.append([full_src, full_href])
+                    full_src = urljoin(BASE_URL, src)
+                    if full_src in seen_srcs or full_src in existing_urls:
+                        continue
+
+                    rows.append([full_src, BASE_URL])
+                    seen_srcs.add(full_src)
                     existing_urls.add(full_src)
+
+                # 次のスライドへ
+                if next_button:
+                    next_button.click()
+                    page.wait_for_timeout(1000)  # 次のスライド読み込み待機
+
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
         finally:
