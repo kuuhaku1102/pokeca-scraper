@@ -1,4 +1,11 @@
-import os
+- name: Upload banner data
+  uses: actions/upload-artifact@v4
+  with:
+    name: banner-data-${{ github.run_number }}
+    path: |
+      banner_data.json
+      banners/
+    retention-days: 30
 import base64
 from urllib.parse import urljoin
 
