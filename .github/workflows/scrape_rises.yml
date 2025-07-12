@@ -26,7 +26,11 @@ jobs:
       - name: Run scraper
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+
           SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+
+          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+
         run: python rises_scraper.py
 
       - name: Upload debug HTML

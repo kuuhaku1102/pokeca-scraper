@@ -1,4 +1,4 @@
-name: Scrape Dopa Banner
+name: Scrape Grim Oripa Banner
 
 on:
   workflow_dispatch:
@@ -27,4 +27,4 @@ jobs:
         env:
           GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
           SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-        run: python dopa_game_banner_scraper.py
+        run: python grim_oripa_banner_scraper.py

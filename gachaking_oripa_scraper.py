@@ -8,12 +8,9 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://rises.jp/product"
-SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit"
-
+BASE_URL = "https://gachaking-oripa.com/index"
 SHEET_NAME = "その他"
+SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
 
 def save_credentials() -> str:
@@ -40,8 +37,12 @@ def get_sheet():
 
 
 def normalize_url(url: str) -> str:
+    if not url:
+        return ""
+    if url.startswith("/"):
+        url = urljoin("https://gachaking-oripa.com", url)
     parts = urlparse(url)
-    return f"{parts.scheme}://{parts.netloc}{parts.path}"
+    return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
 
 
 def fetch_existing_urls(sheet) -> set:
@@ -49,10 +50,21 @@ def fetch_existing_urls(sheet) -> set:
     urls = set()
     for row in records[1:]:
         if len(row) >= 3:
-            url = row[2].strip()
-            if url:
-                urls.add(normalize_url(url))
+            u = row[2].strip()
+            if u:
+                urls.add(normalize_url(u))
     return urls
+
+
+def scroll_to_bottom(page, max_scrolls=20, pause_ms=500):
+    last_height = 0
+    for _ in range(max_scrolls):
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(pause_ms)
+        height = page.evaluate("document.body.scrollHeight")
+        if height == last_height:
+            break
+        last_height = height
 
 
 def parse_items(page) -> List[dict]:
@@ -60,15 +72,14 @@ def parse_items(page) -> List[dict]:
         """
         () => {
             const results = [];
-            document.querySelectorAll('div.gacha-item').forEach(card => {
-                const link = card.querySelector('a[href]');
-                const img = link ? link.querySelector('img') : null;
-                const url = link ? link.href : '';
-                const image = img ? (img.getAttribute('src') || '') : '';
-                const title = img ? (img.getAttribute('alt') || '').trim() : '';
-                let pt = '';
-                const span = card.querySelector('span.gacha-price');
-                if (span) pt = span.textContent.replace(/\s+/g, '');
+            document.querySelectorAll('div.items.series-guest-manage-height').forEach(item => {
+                const linkEl = item.querySelector('a[link]');
+                const url = linkEl ? linkEl.getAttribute('link') : '';
+                const img = item.querySelector('.bgimg img');
+                const image = img ? (img.getAttribute('data-original') || img.getAttribute('src') || '') : '';
+                const title = img ? (img.getAttribute('alt') || img.getAttribute('title') || '').trim() : '';
+                const ptEl = item.querySelector('.btn-box span.second-text');
+                const pt = ptEl ? ptEl.textContent.trim() : '';
                 results.push({title, image, url, pt});
             });
             return results;
@@ -81,54 +92,37 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/115.0 Safari/537.36"
-            )
-        )
-        print("🔍 rises.jp スクレイピング開始...")
-        try:
-            page.goto(BASE_URL, timeout=120000)
-            page.wait_for_load_state("networkidle", timeout=120000)
-            page.wait_for_selector('div.gacha-item', timeout=120000)
         page = browser.new_page()
-        print("🔍 rises.jp スクレイピング開始...")
+        print("🔍 gachaking-oripa スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=120000, wait_until="domcontentloaded")
-            page.wait_for_selector('div.gacha-item', timeout=120000)
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('div.gacha-item', timeout=60000)
+            page.wait_for_selector('div.items', timeout=60000)
+            scroll_to_bottom(page)
         except Exception as exc:
-            html = page.content()
-            with open("rises_debug.html", "w", encoding="utf-8") as f:
-                f.write(html)
-            browser.close()
             print(f"🛑 ページ読み込み失敗: {exc}")
+            html = page.content()
+            browser.close()
+            with open("gachaking_oripa_debug.html", "w", encoding="utf-8") as f:
+                f.write(html)
             return rows
 
         items = parse_items(page)
         browser.close()
 
     for item in items:
-        detail_url = item.get("url", "").strip()
-        image_url = item.get("image", "").strip()
-        title = item.get("title", "noname").strip() or "noname"
-        pt_text = re.sub(r"[^0-9,]", "", item.get("pt", ""))
-
-        if detail_url.startswith("/"):
-            detail_url = urljoin("https://rises.jp", detail_url)
-        if image_url.startswith("/"):
-            image_url = urljoin("https://rises.jp", image_url)
-
-        norm_url = normalize_url(detail_url)
-        if norm_url in existing_urls:
-            print(f"⏭ スキップ（重複）: {title}")
+        detail_url = normalize_url(item.get("url", "").strip())
+        if not detail_url or detail_url in existing_urls:
             continue
 
+        image_url = item.get("image", "").strip()
+        if image_url.startswith("/"):
+            image_url = urljoin("https://gachaking-oripa.com", image_url)
+
+        title = item.get("title", "").strip() or "noname"
+        pt_text = re.sub(r"[^0-9]", "", item.get("pt", ""))
+
         rows.append([title, image_url, detail_url, pt_text])
-        existing_urls.add(norm_url)
+        existing_urls.add(detail_url)
     return rows
 
 
