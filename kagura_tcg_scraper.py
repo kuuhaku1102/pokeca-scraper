@@ -58,7 +58,7 @@ def parse_items(page):
             const results = [];
             document.querySelectorAll('div.flex.flex-col.cursor-pointer').forEach(box => {
                 let url = '';
-                const link = box.parentElement;
+                const link = box.closest('a');
                 if (link && link.href) url = link.href;
 
                 let image = '';
@@ -69,8 +69,8 @@ def parse_items(page):
                 }
 
                 let title = '';
-                const badge = box.querySelector('div.absolute');
-                if (badge) title = badge.textContent.trim();
+                const titleEl = box.querySelector('div.text-center') || box.querySelector('h3') || box.querySelector('div.font-bold');
+                if (titleEl) title = titleEl.textContent.trim();
 
                 let pt = '';
                 const ptEl = box.querySelector('div.text-stone-100 span.text-base');
