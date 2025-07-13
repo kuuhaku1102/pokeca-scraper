@@ -56,7 +56,7 @@ def parse_items(page):
         """
         () => {
             const results = [];
-            document.querySelectorAll('div.rounded-lg.border-neutral-800').forEach(box => {
+            document.querySelectorAll('div[class*="rounded-lg"][class*="border-neutral-800"]').forEach(box => {
                 let url = '';
                 const link = box.closest('a[href]') || box.querySelector('a[href]');
                 if (link) url = link.href;
@@ -93,8 +93,10 @@ def scrape_items(existing_urls: set) -> list:
         try:
             page.goto(BASE_URL, timeout=60000)
             page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(5000)  # JS描画待ち
-            page.wait_for_selector('div.rounded-lg.border-neutral-800', timeout=30000)
+            page.wait_for_timeout(8000)  # JS描画待機
+
+            # 柔軟なセレクタで待機
+            page.wait_for_selector('div[class*="rounded-lg"][class*="border-neutral-800"]', timeout=40000)
 
             items = parse_items(page)
             print(f"📦 取得件数: {len(items)}")
