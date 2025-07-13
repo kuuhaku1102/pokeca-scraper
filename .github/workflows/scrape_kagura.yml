@@ -3,7 +3,7 @@ name: Scrape Kagura TCG
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間おきに実行
+    - cron: '0 */3 * * *'  # 3時間ごとに実行
 
 jobs:
   scrape:
@@ -22,7 +22,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          python -m playwright install --with-deps  # ← Node.js不要でこれだけでOK
+          python -m playwright install  # Python Playwright 用ブラウザをDL
 
       - name: Run scraper
         env:
@@ -31,7 +31,7 @@ jobs:
         run: python kagura_tcg_scraper.py
 
       - name: Upload debug HTML
-        if: failure()
+        if: always()  # ← ここを必ず実行に変更
         uses: actions/upload-artifact@v4
         with:
           name: kagura_debug
