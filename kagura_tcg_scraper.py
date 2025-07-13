@@ -58,8 +58,8 @@ def parse_items(page):
             const results = [];
             document.querySelectorAll('div.flex.flex-col.cursor-pointer').forEach(box => {
                 let url = '';
-                const link = box.closest('a[href]') || box.querySelector('a[href]');
-                if (link) url = link.href;
+                const link = box.parentElement;
+                if (link && link.href) url = link.href;
 
                 let image = '';
                 const imgDiv = box.querySelector('div[style*="background-image"]');
@@ -91,13 +91,9 @@ def scrape_items(existing_urls: set) -> list:
         page = browser.new_page()
         print("🔍 kagura-tcg.com スクレイピング開始...")
         try:
-            # 重要：タイムアウト防止に domcontentloaded 指定
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
-            page.wait_for_timeout(3000)  # JS描画待ち（任意で増やす）
-
-            # 背景画像要素（=サムネイル）を指標に待機
+            page.wait_for_timeout(3000)
             page.wait_for_selector("div[style*='background-image']", timeout=15000)
-
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             try:
@@ -127,6 +123,9 @@ def scrape_items(existing_urls: set) -> list:
             image_url = urljoin(BASE_URL, image_url)
 
         norm_url = strip_query(detail_url)
+        if not norm_url:
+            print(f"⚠️ URLが空のためスキップ: {title}")
+            continue
         if norm_url in existing_urls:
             print(f"⏭ スキップ（重複）: {title}")
             continue
