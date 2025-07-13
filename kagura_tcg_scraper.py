@@ -60,23 +60,27 @@ def parse_items(page):
                 let url = '';
                 const link = box.closest('a[href]') || box.querySelector('a[href]');
                 if (link) url = link.href;
+
                 let image = '';
                 const imgDiv = box.querySelector('div[style*="background-image"]');
                 if (imgDiv) {
-                    const m = imgDiv.style.backgroundImage.match(/url\([\"']?(.*?)[\"']?\)/);
+                    const m = imgDiv.style.backgroundImage.match(/url\\(["']?(.*?)["']?\\)/);
                     if (m) image = m[1];
                 }
+
                 let title = '';
-                const titleEl = box.querySelector('div.font-bold') || box.querySelector('h3');
-                if (titleEl) title = titleEl.textContent.trim();
+                const badge = box.querySelector('div.absolute');
+                if (badge) title = badge.textContent.trim();
+
                 let pt = '';
-                const ptEl = box.querySelector('div.text-stone-100');
-                if (ptEl) pt = ptEl.textContent.replace(/\s+/g, '');
+                const ptEl = box.querySelector('div.text-stone-100 span.text-base');
+                if (ptEl) pt = ptEl.textContent.replace(/\\s+/g, '');
+
                 results.push({ title, image, url, pt });
             });
             return results;
         }
-        """,
+        """
     )
 
 
@@ -87,8 +91,10 @@ def scrape_items(existing_urls: set) -> list:
         page = browser.new_page()
         print("🔍 kagura-tcg.com スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('div.flex.flex-col.cursor-pointer', timeout=60000)
+            page.goto(BASE_URL, timeout=60000)
+            page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(3000)
+            page.wait_for_selector('div.flex.flex-col.cursor-pointer', timeout=10000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
@@ -98,6 +104,7 @@ def scrape_items(existing_urls: set) -> list:
             return rows
 
         items = parse_items(page)
+        print(f"📦 取得件数: {len(items)}")
         browser.close()
 
     for item in items:
@@ -119,6 +126,7 @@ def scrape_items(existing_urls: set) -> list:
 
         rows.append([title, image_url, detail_url, pt_value])
         existing_urls.add(norm_url)
+
     return rows
 
 
