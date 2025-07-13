@@ -56,7 +56,7 @@ def parse_items(page):
         """
         () => {
             const results = [];
-            document.querySelectorAll('div.flex.flex-col.cursor-pointer').forEach(box => {
+            document.querySelectorAll('div.rounded-lg.border-neutral-800').forEach(box => {
                 let url = '';
                 const link = box.closest('a[href]') || box.querySelector('a[href]');
                 if (link) url = link.href;
@@ -73,7 +73,7 @@ def parse_items(page):
                 if (badge) title = badge.textContent.trim();
 
                 let pt = '';
-                const ptEl = box.querySelector('div.text-stone-100 span.text-base');
+                const ptEl = box.querySelector('span.text-base');
                 if (ptEl) pt = ptEl.textContent.replace(/\\s+/g, '');
 
                 results.push({ title, image, url, pt });
@@ -94,9 +94,8 @@ def scrape_items(existing_urls: set) -> list:
             page.goto(BASE_URL, timeout=60000)
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(5000)  # JS描画待ち
+            page.wait_for_selector('div.rounded-lg.border-neutral-800', timeout=30000)
 
-            # セレクタ表示待ち（タイムアウト30秒）
-            page.wait_for_selector('div.flex.flex-col.cursor-pointer', timeout=30000)
             items = parse_items(page)
             print(f"📦 取得件数: {len(items)}")
 
