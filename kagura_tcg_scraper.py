@@ -91,21 +91,18 @@ def scrape_items(existing_urls: set) -> list:
         page = browser.new_page()
         print("🔍 kagura-tcg.com スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000)
-            page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(2000)
-
-            # JSレンダリングトリガー：スクロール
-            page.evaluate("window.scrollBy(0, window.innerHeight);")
-            page.wait_for_timeout(3000)
-
-            page.wait_for_selector('div.flex.flex-col.cursor-pointer', timeout=10000)
+            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_selector("div[style*='background-image']", timeout=15000)
+            page.wait_for_timeout(1000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
-            html = page.content()
-            with open("kagura_debug.html", "w", encoding="utf-8") as f:
-                f.write(html)
-            print("💾 kagura_debug.html を保存しました")
+            try:
+                html = page.content()
+                with open("kagura_debug.html", "w", encoding="utf-8") as f:
+                    f.write(html)
+                print("💾 kagura_debug.html を保存しました")
+            except Exception as e:
+                print(f"⚠️ HTML保存失敗: {e}")
             browser.close()
             return rows
 
