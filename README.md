@@ -271,6 +271,21 @@ python ichica_banner_scraper.py
 
 The workflow `.github/workflows/scrape_ichica_banner.yml` runs this scraper automatically.
 
+## Ichica Recommended Banner Scraper
+
+The `ichica_lotteries_banner_scraper.py` script retrieves banner images from the [recommended lotteries page](https://ichica.co/?tab=Lotteries&dds=recommended) on [ichica.co](https://ichica.co/). It uses Playwright to collect each image URL from the element `#testing` and appends them to the `news` sheet while skipping duplicates.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python ichica_lotteries_banner_scraper.py
+```
+
+The workflow `.github/workflows/scrape_ichica_lotteries_banner.yml` runs this scraper automatically.
+
 ## Oripalette Scraper
 
 The `oripalette_scraper.py` script collects gacha information from [oripalette.jp](https://oripalette.jp/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
