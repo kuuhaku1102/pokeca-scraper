@@ -7,6 +7,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
+# Set a desktop Chrome user agent to avoid simple bot blocking
+DEFAULT_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
+
 BASE_URL = "https://torekazi.com/"
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
@@ -47,14 +54,16 @@ def fetch_existing_urls(sheet) -> set:
 
 
 def parse_items(page) -> List[dict]:
+    """Return list of item dicts from the currently loaded page."""
     return page.evaluate(
         """
         () => {
             const results = [];
-            document.querySelectorAll('div.bg-white.rounded-lg.border-2.border-torekazi-red.shadow').forEach(card => {
-                const a = card.querySelector('a.block[href]');
-                const img = a ? a.querySelector('img') : null;
-                const url = a ? a.href : '';
+            document.querySelectorAll('div.bg-white.rounded-lg').forEach(card => {
+                const a = card.querySelector('a[href]');
+                if (!a) return;
+                const img = a.querySelector('img');
+                const url = a.href;
                 const image = img ? (img.getAttribute('src') || img.getAttribute('data-src') || '') : '';
                 const titleEl = card.querySelector('h2, h3, p.font-semibold, p.font-bold');
                 let title = titleEl ? titleEl.textContent.trim() : '';
@@ -75,11 +84,11 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        page = browser.new_page(user_agent=DEFAULT_UA)
         print("🔍 torekazi.com スクレイピング開始...")
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('div.bg-white.rounded-lg.border-2.border-torekazi-red.shadow', timeout=60000)
+            page.wait_for_selector('div.bg-white.rounded-lg', timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
