@@ -93,16 +93,24 @@ def scrape_items(existing_urls: set) -> list:
         try:
             page.goto(BASE_URL, timeout=60000)
             page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(3000)
-            page.wait_for_selector('div.flex.flex-col.cursor-pointer', timeout=10000)
+            page.wait_for_timeout(5000)  # JS描画待ち
+
+            # セレクタ表示待ち（タイムアウト30秒）
+            page.wait_for_selector('div.flex.flex-col.cursor-pointer', timeout=30000)
             items = parse_items(page)
             print(f"📦 取得件数: {len(items)}")
+
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
-            html = page.content()
-            with open("kagura_debug.html", "w", encoding="utf-8") as f:
-                f.write(html)
+            try:
+                html = page.content()
+                with open("kagura_debug.html", "w", encoding="utf-8") as f:
+                    f.write(html)
+                print("💾 kagura_debug.html を保存しました")
+            except Exception as e:
+                print(f"⚠️ HTML保存失敗: {e}")
             return []
+
         finally:
             browser.close()
 
