@@ -3,7 +3,7 @@ name: Scrape Kagura TCG
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごと
+    - cron: '0 */3 * * *'  # 3時間おきに実行
 
 jobs:
   scrape:
@@ -11,27 +11,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Python and Node.js dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          npm install playwright  # ✅ ← これが抜けてると npx が失敗する
-
-      - name: Install Playwright browsers
-        run: |
-          npx playwright install --with-deps  # ✅ ← ブラウザ本体を入れる
+          python -m playwright install --with-deps  # ← Node.js不要でこれだけでOK
 
       - name: Run scraper
         env:
