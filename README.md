@@ -518,6 +518,7 @@ Run locally:
 
 ```bash
 pip install -r requirements.txt
+playwright install
 export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
 export SPREADSHEET_URL=<YOUR_SHEET_URL>
 python kagura_tcg_scraper.py
