@@ -509,3 +509,18 @@ python pokepa365_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_pokepa365.yml` runs this scraper automatically.
+
+## Kagura TCG Scraper
+
+The `kagura_tcg_scraper.py` script collects gacha information from [kagura-tcg.com](https://kagura-tcg.com/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python kagura_tcg_scraper.py
+```
+
+The workflow `.github/workflows/scrape_kagura.yml` runs this scraper automatically.
