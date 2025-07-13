@@ -91,9 +91,13 @@ def scrape_items(existing_urls: set) -> list:
         page = browser.new_page()
         print("🔍 kagura-tcg.com スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            # 重要：タイムアウト防止に domcontentloaded 指定
+            page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
+            page.wait_for_timeout(3000)  # JS描画待ち（任意で増やす）
+
+            # 背景画像要素（=サムネイル）を指標に待機
             page.wait_for_selector("div[style*='background-image']", timeout=15000)
-            page.wait_for_timeout(1000)
+
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             try:
