@@ -41,7 +41,7 @@ def fetch_existing_urls(sheet) -> set:
     urls = set()
     for row in records[1:]:
         if len(row) >= 2:
-            u = row[1].strip()  # URL列（2列目）を使用
+            u = row[1].strip()
             if u:
                 urls.add(strip_query(u))
     return urls
@@ -68,16 +68,18 @@ def scrape_items(existing_urls: set) -> list:
             browser.close()
             return rows
 
-        items = page.query_selector_all('div.flex.flex-col.cursor-pointer')
-        print(f"📦 取得件数: {len(items)}")
+        count = len(page.query_selector_all("div.flex.flex-col.cursor-pointer"))
+        print(f"📦 取得件数: {count}")
 
-        for box in items:
+        for i in range(count):
             try:
+                items = page.query_selector_all("div.flex.flex-col.cursor-pointer")
+                box = items[i]
+
                 image_url = ""
                 pt_value = ""
                 detail_url = ""
 
-                # 画像
                 img_div = box.query_selector("div[style*='background-image']")
                 if img_div:
                     style = img_div.get_attribute("style")
@@ -85,13 +87,11 @@ def scrape_items(existing_urls: set) -> list:
                     if match:
                         image_url = match.group(1)
 
-                # pt
                 pt_el = box.query_selector("div.text-stone-100 span.text-base")
                 if pt_el:
                     pt_text = pt_el.inner_text().strip()
                     pt_value = re.sub(r"[^0-9]", "", pt_text)
 
-                # 詳細URL取得のためクリック
                 box.click(timeout=10000)
                 page.wait_for_load_state("domcontentloaded")
                 page.wait_for_timeout(1000)
