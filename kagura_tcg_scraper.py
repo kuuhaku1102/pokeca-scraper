@@ -73,9 +73,25 @@ def scrape_items(existing_urls: set) -> list:
 
         for box in items:
             try:
+                link = box.query_selector("a")
+                if not link:
+                    continue
+                href = link.get_attribute("href")
+                if not href:
+                    continue
+                detail_url = urljoin(BASE_URL, href)
+
+                norm_url = strip_query(detail_url)
+                if not norm_url:
+                    print("⚠️ URLが空のためスキップ")
+                    continue
+                if norm_url in existing_urls:
+                    print(f"⏭ スキップ（重複）: {norm_url}")
+                    continue
+
                 box.click(timeout=10000)
                 page.wait_for_load_state("domcontentloaded")
-                detail_url = page.url
+                page.wait_for_timeout(1000)
 
                 image_url = ""
                 img_div = page.query_selector("div[style*='background-image']")
@@ -91,19 +107,8 @@ def scrape_items(existing_urls: set) -> list:
                     pt_text = pt_el.inner_text().strip()
                     pt_value = re.sub(r"[^0-9]", "", pt_text)
 
-                if detail_url.startswith("/"):
-                    detail_url = urljoin(BASE_URL, detail_url)
                 if image_url.startswith("/"):
                     image_url = urljoin(BASE_URL, image_url)
-
-                norm_url = strip_query(detail_url)
-                if not norm_url:
-                    print("⚠️ URLが空のためスキップ")
-                    continue
-                if norm_url in existing_urls:
-                    print(f"⏭ スキップ（重複）: {norm_url}")
-                    page.go_back()
-                    continue
 
                 rows.append([image_url, detail_url, pt_value])
                 existing_urls.add(norm_url)
@@ -113,7 +118,11 @@ def scrape_items(existing_urls: set) -> list:
                 page.wait_for_timeout(500)
             except Exception as e:
                 print(f"⚠️ アイテム処理失敗: {e}")
-                page.go_back()
+                try:
+                    page.go_back()
+                    page.wait_for_load_state("domcontentloaded")
+                except:
+                    continue
 
         browser.close()
     return rows
