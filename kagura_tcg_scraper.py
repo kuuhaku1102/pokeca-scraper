@@ -11,6 +11,7 @@ BASE_URL = "https://kagura-tcg.com/"
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
+
 def save_credentials() -> str:
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
@@ -18,6 +19,7 @@ def save_credentials() -> str:
     with open("credentials.json", "w") as f:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
+
 
 def get_sheet():
     creds_path = save_credentials()
@@ -32,19 +34,22 @@ def get_sheet():
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
+
 def strip_query(url: str) -> str:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
 
 def fetch_existing_urls(sheet) -> set:
     records = sheet.get_all_values()
     urls = set()
     for row in records[1:]:
-        if len(row) >= 3:
-            u = row[2].strip()
+        if len(row) >= 2:
+            u = row[1].strip()
             if u:
                 urls.add(strip_query(u))
     return urls
+
 
 def scrape_items(existing_urls: set) -> list:
     rows = []
@@ -55,7 +60,7 @@ def scrape_items(existing_urls: set) -> list:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
-            page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=15000)
+            cards = page.query_selector_all("div.flex.flex-col.cursor-pointer")
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             try:
@@ -68,44 +73,15 @@ def scrape_items(existing_urls: set) -> list:
             browser.close()
             return rows
 
-        count = len(page.query_selector_all("div.flex.flex-col.cursor-pointer"))
-        print(f"📦 取得件数: {count}")
+        print(f"📦 取得件数: {len(cards)}")
 
-        for i in range(count):
+        for card in cards:
             try:
-                items = page.query_selector_all("div.flex.flex-col.cursor-pointer")
-                box = items[i]
-                box.scroll_into_view_if_needed()
-                box.click(timeout=10000)
-                page.wait_for_load_state("domcontentloaded")
-                page.wait_for_timeout(1000)
+                # 詳細ページへ遷移してURLを取得
+                with page.expect_navigation():
+                    card.click()
 
                 detail_url = page.url
-                title = "noname"
-                pt_value = ""
-                image_url = ""
-
-                # タイトル取得
-                title_el = page.query_selector("h1, h2")
-                if title_el:
-                    title = title_el.inner_text().strip()
-
-                # pt取得
-                pt_el = page.query_selector(".text-stone-100 span.text-base")
-                if pt_el:
-                    pt_text = pt_el.inner_text().strip()
-                    pt_value = re.sub(r"[^0-9]", "", pt_text)
-
-                # 画像取得
-                img_el = page.query_selector("img")
-                if img_el:
-                    image_url = img_el.get_attribute("src")
-
-                if detail_url.startswith("/"):
-                    detail_url = urljoin(BASE_URL, detail_url)
-                if image_url and image_url.startswith("/"):
-                    image_url = urljoin(BASE_URL, image_url)
-
                 norm_url = strip_query(detail_url)
                 if not norm_url:
                     print("⚠️ URLが空のためスキップ")
@@ -116,22 +92,46 @@ def scrape_items(existing_urls: set) -> list:
                     page.go_back()
                     continue
 
+                # タイトル取得
+                try:
+                    title = page.query_selector("h1").inner_text().strip()
+                except:
+                    title = "noname"
+
+                # 画像URL取得
+                try:
+                    img_tag = page.query_selector("img")
+                    image_url = img_tag.get_attribute("src")
+                    if image_url.startswith("/"):
+                        image_url = urljoin(BASE_URL, image_url)
+                except:
+                    image_url = ""
+
+                # pt取得
+                try:
+                    pt_el = page.query_selector(".fa-coins")
+                    pt_text = pt_el.evaluate("el => el.parentElement.textContent")
+                    pt_value = re.sub(r"[^0-9]", "", pt_text)
+                except:
+                    pt_value = ""
+
                 rows.append([title, image_url, detail_url, pt_value])
                 existing_urls.add(norm_url)
 
                 page.go_back()
-                page.wait_for_load_state("domcontentloaded")
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(1000)
+
             except Exception as e:
                 print(f"⚠️ アイテム処理失敗: {e}")
                 try:
                     page.go_back()
-                    page.wait_for_load_state("domcontentloaded")
                 except:
-                    continue
+                    pass
+                page.wait_for_timeout(1000)
 
         browser.close()
     return rows
+
 
 def main() -> None:
     sheet = get_sheet()
@@ -145,6 +145,7 @@ def main() -> None:
             print(f"❌ スプレッドシート書き込み失敗: {exc}")
     else:
         print("📭 新規データなし")
+
 
 if __name__ == "__main__":
     main()
