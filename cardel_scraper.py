@@ -2,7 +2,7 @@ import os
 import base64
 import re
 from typing import List
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -36,6 +36,12 @@ def get_sheet():
     return spreadsheet.worksheet(SHEET_NAME)
 
 
+def normalize_url(url: str) -> str:
+    """URLを正規化（クエリパラメータなどを除外）"""
+    parsed = urlparse(url)
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+
 def fetch_existing_urls(sheet) -> set:
     records = sheet.get_all_values()
     urls = set()
@@ -43,7 +49,7 @@ def fetch_existing_urls(sheet) -> set:
         if len(row) >= 3:
             url = row[2].strip()
             if url:
-                urls.add(url)
+                urls.add(normalize_url(url))
     return urls
 
 
@@ -58,7 +64,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("div[id$='-Wrap']", timeout=60000)
 
-            # スクロール処理（より堅牢なバージョン）
+            # スクロール処理
             page.evaluate("""
                 async () => {
                     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -78,34 +84,23 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                     }
                 }
             """)
-
-            # スクロール後に2秒待機
             page.wait_for_timeout(2000)
 
-            # HTML保存（デバッグ用）
-            html = page.content()
+            # デバッグ保存
             with open("cardel_debug.html", "w", encoding="utf-8") as f:
-                f.write(html)
-
-            # デバッグ: 表示された画像数の確認
-            img_elements = page.query_selector_all("img")
-            print(f"🖼️ 表示された画像数: {len(img_elements)}")
-            for i, img in enumerate(img_elements[:5]):
-                print(f" - {img.get_attribute('src')}")
+                f.write(page.content())
 
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             browser.close()
             return rows
 
-        # アイテム取得本処理
         try:
             items = page.evaluate(
                 """
                 () => {
                     const results = [];
                     const elements = document.querySelectorAll('div[id$="-Wrap"]');
-                    console.log("💡 Wrap要素数:", elements.length);
                     elements.forEach(el => {
                         const title = el.getAttribute('title') || '';
                         const fig = el.querySelector('figure');
@@ -161,8 +156,10 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         detail_url = item.get("url", "").strip()
         if detail_url.startswith("/"):
             detail_url = urljoin(BASE_URL, detail_url)
-        if not detail_url or detail_url in existing_urls:
-            if detail_url in existing_urls:
+        norm_url = normalize_url(detail_url)
+
+        if not norm_url or norm_url in existing_urls:
+            if norm_url in existing_urls:
                 print(f"⏭ スキップ（重複）: {item.get('title', '')}")
             continue
 
@@ -174,7 +171,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         pt_text = re.sub(r"[^0-9]", "", item.get("pt", ""))
 
         rows.append([title, image_url, detail_url, pt_text])
-        existing_urls.add(detail_url)
+        existing_urls.add(norm_url)
         print(f"✅ 取得: {title}")
 
     return rows
@@ -183,10 +180,6 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
 def main() -> None:
     sheet = get_sheet()
     existing_urls = fetch_existing_urls(sheet)
-
-    # デバッグ用にすべて取得したい場合は以下を使う
-    # existing_urls = set()
-
     rows = scrape_items(existing_urls)
     if rows:
         sheet.append_rows(rows, value_input_option="USER_ENTERED")
