@@ -60,7 +60,7 @@ def scrape_items(existing_urls: set) -> list:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
-            total = len(page.query_selector_all("div.flex.flex-col.cursor-pointer"))
+            cards = page.query_selector_all("div.flex.flex-col.cursor-pointer")
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             try:
@@ -73,18 +73,25 @@ def scrape_items(existing_urls: set) -> list:
             browser.close()
             return rows
 
-        print(f"📦 取得件数: {total}")
-        index = 0
+        print(f"📦 取得件数: {len(cards)}")
 
-        while index < total:
+        for i in range(len(cards)):
             try:
                 cards = page.query_selector_all("div.flex.flex-col.cursor-pointer")
-                if index >= len(cards):
-                    break
+                card = cards[i]
 
-                card = cards[index]
+                # background-image から画像URL取得
+                try:
+                    img_div = card.query_selector("div[style*='background-image']")
+                    style = img_div.get_attribute("style")
+                    match = re.search(r'url\(["\']?(.*?)["\']?\)', style)
+                    image_url = match.group(1) if match else ""
+                    if image_url.startswith("/"):
+                        image_url = urljoin(BASE_URL, image_url)
+                except:
+                    image_url = ""
 
-                with page.expect_navigation():
+                with page.expect_navigation(wait_until="load", timeout=30000):
                     card.click()
 
                 detail_url = page.url
@@ -93,27 +100,19 @@ def scrape_items(existing_urls: set) -> list:
                     print("⚠️ URLが空のためスキップ")
                     page.go_back()
                     page.wait_for_timeout(1000)
-                    index += 1
+                    page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=10000)
                     continue
                 if norm_url in existing_urls:
                     print(f"⏭ スキップ（重複）: {norm_url}")
                     page.go_back()
                     page.wait_for_timeout(1000)
-                    index += 1
+                    page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=10000)
                     continue
 
                 try:
                     title = page.query_selector("h1").inner_text().strip()
                 except:
                     title = "noname"
-
-                try:
-                    img_tag = page.query_selector("img")
-                    image_url = img_tag.get_attribute("src")
-                    if image_url.startswith("/"):
-                        image_url = urljoin(BASE_URL, image_url)
-                except:
-                    image_url = ""
 
                 try:
                     pt_el = page.query_selector(".fa-coins")
@@ -127,16 +126,16 @@ def scrape_items(existing_urls: set) -> list:
 
                 page.go_back()
                 page.wait_for_timeout(1000)
-                index += 1
+                page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=10000)
 
             except Exception as e:
                 print(f"⚠️ アイテム処理失敗: {e}")
                 try:
                     page.go_back()
+                    page.wait_for_timeout(1000)
+                    page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=10000)
                 except:
                     pass
-                page.wait_for_timeout(1000)
-                index += 1
 
         browser.close()
     return rows
