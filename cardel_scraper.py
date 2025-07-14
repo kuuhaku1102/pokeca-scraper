@@ -56,6 +56,29 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("div[id$='-Wrap']", timeout=60000)
+
+            # 🔽 ページ下まで自動スクロール（すべてのオリパを読み込む）
+            page.evaluate("""
+                async () => {
+                    await new Promise(resolve => {
+                        let totalHeight = 0;
+                        const distance = 100;
+                        const timer = setInterval(() => {
+                            const scrollHeight = document.body.scrollHeight;
+                            window.scrollBy(0, distance);
+                            totalHeight += distance;
+                            if (totalHeight >= scrollHeight) {
+                                clearInterval(timer);
+                                resolve();
+                            }
+                        }, 100);
+                    });
+                }
+            """)
+
+            # 💡 スクロール後に少し待機して描画完了を待つ
+            page.wait_for_timeout(2000)
+
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
@@ -64,53 +87,58 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             browser.close()
             return rows
 
-        items = page.evaluate(
-            """
-            () => {
-                const results = [];
-                document.querySelectorAll('div[id$="-Wrap"]').forEach(el => {
-                    const title = el.getAttribute('title') || '';
-                    const fig = el.querySelector('figure');
-                    let image = '';
-                    if (fig) {
-                        const img = fig.querySelector('img[src]');
-                        if (img) {
-                            image = img.src;
+        try:
+            items = page.evaluate(
+                """
+                () => {
+                    const results = [];
+                    document.querySelectorAll('div[id$="-Wrap"]').forEach(el => {
+                        const title = el.getAttribute('title') || '';
+                        const fig = el.querySelector('figure');
+                        let image = '';
+                        if (fig) {
+                            const img = fig.querySelector('img[src]');
+                            if (img) {
+                                image = img.src;
+                            } else {
+                                const bg = fig.style.backgroundImage || '';
+                                const m = bg.match(/url\\((?:"|')?(.*?)(?:"|')?\\)/);
+                                if (m) image = m[1];
+                            }
+                        }
+                        let url = '';
+                        const a = el.querySelector('a[href]');
+                        if (a) {
+                            url = a.href;
+                        } else if (el.dataset && el.dataset.href) {
+                            url = el.dataset.href;
                         } else {
-                            const bg = fig.style.backgroundImage || '';
-                            const m = bg.match(/url\((?:"|')?(.*?)(?:"|')?\)/);
-                            if (m) image = m[1];
+                            const dh = el.getAttribute('data-href') || '';
+                            if (dh) url = dh;
+                            const oc = el.getAttribute('onclick');
+                            if (!url && oc) {
+                                const m = oc.match(/location\\.href=['"](.*?)['"]/);
+                                if (m) url = m[1];
+                            }
                         }
-                    }
-                    let url = '';
-                    const a = el.querySelector('a[href]');
-                    if (a) {
-                        url = a.href;
-                    } else if (el.dataset && el.dataset.href) {
-                        url = el.dataset.href;
-                    } else {
-                        const dh = el.getAttribute('data-href') || '';
-                        if (dh) url = dh;
-                        const oc = el.getAttribute('onclick');
-                        if (!url && oc) {
-                            const m = oc.match(/location\.href=['"](.*?)['"]/);
-                            if (m) url = m[1];
+                        let pt = '';
+                        const ptEl = el.querySelector('div.flex.justify-end p.text-sm');
+                        if (ptEl) pt = ptEl.textContent.trim();
+                        if (!pt) {
+                            const txt = el.innerText;
+                            const m = txt.match(/([0-9,]+)\\s*pt/);
+                            if (m) pt = m[1];
                         }
-                    }
-                    let pt = '';
-                    const ptEl = el.querySelector('div.flex.justify-end p.text-sm');
-                    if (ptEl) pt = ptEl.textContent.trim();
-                    if (!pt) {
-                        const txt = el.innerText;
-                        const m = txt.match(/([0-9,]+)\s*pt/);
-                        if (m) pt = m[1];
-                    }
-                    results.push({ title, image, url, pt });
-                });
-                return results;
-            }
-            """
-        )
+                        results.push({ title, image, url, pt });
+                    });
+                    return results;
+                }
+                """
+            )
+        except Exception as e:
+            print("🛑 evaluate中に失敗:", e)
+            items = []
+
         browser.close()
 
     for item in items:
