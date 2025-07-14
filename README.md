@@ -525,3 +525,19 @@ python kagura_tcg_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_kagura.yml` runs this scraper automatically.
+
+## Quest Oripa Scraper
+
+The `quest_oripa_scraper.py` script gathers gacha information from [quest-oripa.com](https://quest-oripa.com/). It uses Playwright to scrape the top page and collects the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+playwright install
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python quest_oripa_scraper.py
+```
+
+The workflow `.github/workflows/scrape_quest_oripa.yml` runs this scraper automatically.
