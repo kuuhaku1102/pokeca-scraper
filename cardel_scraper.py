@@ -63,7 +63,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("div[id$='-Wrap']", timeout=10000)
 
-            # スクロールで全件読み込み
+            # スクロールで要素をロード
             page.evaluate("""
                 async () => {
                     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -75,56 +75,67 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             """)
             page.wait_for_timeout(1000)
 
-            elements = page.query_selector_all("div[id$='-Wrap']")
-            print(f"📦 検出数: {len(elements)}")
+            index = 0
+            while True:
+                elements = page.query_selector_all("div[id$='-Wrap']")
+                if index >= len(elements):
+                    break
 
-            for i, el in enumerate(elements):
-                title = el.get_attribute("title") or f"noname-{i}"
+                try:
+                    el = elements[index]
+                    title = el.get_attribute("title") or f"noname-{index}"
 
-                # 画像URL
-                image = ""
-                fig = el.query_selector("figure")
-                if fig:
-                    img = fig.query_selector("img")
-                    if img:
-                        image = img.get_attribute("src")
+                    # 画像
+                    image = ""
+                    fig = el.query_selector("figure")
+                    if fig:
+                        img = fig.query_selector("img")
+                        if img:
+                            image = img.get_attribute("src")
 
-                # pt（ポイント）
-                pt_text = ""
-                pt_el = el.query_selector("div.flex.justify-end p.text-sm")
-                if pt_el:
-                    pt_text = pt_el.inner_text().strip()
-                else:
-                    m = re.search(r"([0-9,]+)\s*pt", el.inner_text())
-                    if m:
-                        pt_text = m.group(1)
+                    # pt
+                    pt_text = ""
+                    pt_el = el.query_selector("div.flex.justify-end p.text-sm")
+                    if pt_el:
+                        pt_text = pt_el.inner_text().strip()
+                    else:
+                        m = re.search(r"([0-9,]+)\s*pt", el.inner_text())
+                        if m:
+                            pt_text = m.group(1)
 
-                # クリックして詳細URLを取得
-                el.scroll_into_view_if_needed()
-                el.click(timeout=10000)
-                page.wait_for_timeout(2000)
-                detail_url = page.url
-                norm_url = normalize_url(detail_url)
+                    # 遷移してURL取得
+                    el.scroll_into_view_if_needed()
+                    el.click(timeout=10000)
+                    page.wait_for_timeout(2000)
+                    detail_url = page.url
+                    norm_url = normalize_url(detail_url)
 
-                if norm_url in existing_urls:
-                    print(f"⏭ スキップ（重複）: {title}")
+                    if norm_url in existing_urls:
+                        print(f"⏭ スキップ（重複）: {title}")
+                        page.go_back(wait_until="networkidle")
+                        page.wait_for_timeout(1000)
+                        index += 1
+                        continue
+
+                    rows.append([title, image, detail_url, re.sub(r"[^0-9]", "", pt_text)])
+                    existing_urls.add(norm_url)
+                    print(f"✅ 取得: {title} - {detail_url}")
+
+                    # 戻る
                     page.go_back(wait_until="networkidle")
                     page.wait_for_timeout(1000)
-                    continue
+                    index += 1
 
-                rows.append([title, image, detail_url, re.sub(r"[^0-9]", "", pt_text)])
-                existing_urls.add(norm_url)
-                print(f"✅ 取得: {title} - {detail_url}")
-
-                # 戻る
-                page.go_back(wait_until="networkidle")
-                page.wait_for_timeout(1000)
+                except Exception as e:
+                    print(f"⚠️ エラー（スキップ）: index {index} - {e}")
+                    page.go_back(wait_until="networkidle")
+                    page.wait_for_timeout(1000)
+                    index += 1
 
         except Exception as e:
             print("🛑 スクレイピング失敗:", e)
 
         browser.close()
-
     return rows
 
 
