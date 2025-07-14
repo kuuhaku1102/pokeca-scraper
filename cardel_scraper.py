@@ -2,7 +2,7 @@ import os
 import base64
 import re
 from typing import List
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -61,38 +61,39 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
 
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector("div[id$='-Wrap']", timeout=60000)
+            page.wait_for_selector('a[href^="/pack/p-"]', timeout=60000)
+            page.wait_for_timeout(2000)
 
+            # オリパタイトル → URLマップ
+            links = page.eval_on_selector_all('a[href^="/pack/p-"]', """
+                (els) => els.map(el => {
+                    const href = el.getAttribute('href');
+                    const title = el.getAttribute('title') || el.innerText || "";
+                    const img = el.querySelector("img");
+                    const image = img ? img.getAttribute("src") : "";
+                    return {
+                        title: title.trim(),
+                        url: href.startsWith("/") ? "https://cardel.online" + href : href,
+                        image
+                    };
+                })
+            """)
+
+            print(f"🔗 リンク件数: {len(links)}")
+
+            # スクロールで要素を読み込む
             page.evaluate("""
                 async () => {
                     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-                    let lastHeight = 0;
-                    let sameCount = 0;
-                    for (let i = 0; i < 30; i++) {
+                    for (let i = 0; i < 20; i++) {
                         window.scrollBy(0, window.innerHeight);
                         await delay(300);
-                        const newHeight = document.body.scrollHeight;
-                        if (newHeight === lastHeight) {
-                            sameCount++;
-                            if (sameCount > 5) break;
-                        } else {
-                            sameCount = 0;
-                            lastHeight = newHeight;
-                        }
                     }
                 }
             """)
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(1000)
 
-            with open("cardel_debug.html", "w", encoding="utf-8") as f:
-                f.write(page.content())
-
-        except Exception as exc:
-            print(f"🛑 ページ読み込み失敗: {exc}")
-            browser.close()
-            return rows
-
-        try:
+            # 商品情報（画像・pt・title取得）
             items = page.evaluate("""
                 () => {
                     const results = [];
@@ -112,26 +113,6 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                             }
                         }
 
-                        let url = '';
-                        const a = el.querySelector('a[href]');
-                        if (a) {
-                            url = a.href;
-                        } else if (el.dataset && el.dataset.href) {
-                            url = el.dataset.href;
-                        } else {
-                            const dh = el.getAttribute('data-href') || '';
-                            if (dh) url = dh;
-                            if (!url) {
-                                const oc = el.getAttribute('onclick') || '';
-                                const m = oc.match(/location\\.href=['"](.*?)['"]/);
-                                if (m) url = m[1];
-                            }
-                        }
-
-                        if (url && url.startsWith('/')) {
-                            url = 'https://cardel.online' + url;
-                        }
-
                         let pt = '';
                         const ptEl = el.querySelector('div.flex.justify-end p.text-sm');
                         if (ptEl) pt = ptEl.textContent.trim();
@@ -141,39 +122,41 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                             if (m) pt = m[1];
                         }
 
-                        results.push({ title, image, url, pt });
+                        results.push({ title, image, pt });
                     });
                     return results;
                 }
             """)
-            print(f"📦 要素数: {len(items)}")
+            print(f"📦 商品数: {len(items)}")
 
         except Exception as e:
-            print("🛑 evaluate中に失敗:", e)
-            items = []
+            print("🛑 スクレイピング失敗:", e)
+            browser.close()
+            return rows
 
         browser.close()
 
+    # タイトル or 画像で URL マッチング
     for item in items:
-        detail_url = item.get("url", "").strip()
-        print(f"🧪 debug url: {detail_url}")  # デバッグ出力
-
-        if not detail_url:
-            continue
-
-        norm_url = normalize_url(detail_url)
-        if norm_url in existing_urls:
-            print(f"⏭ スキップ（重複）: {item.get('title', '')}")
-            continue
-
-        image_url = item.get("image", "")
-        if image_url.startswith("/"):
-            image_url = urljoin(BASE_URL, image_url)
-
-        title = item.get("title", "").strip() or "noname"
+        title = item.get("title", "").strip()
+        image = item.get("image", "").strip()
         pt_text = re.sub(r"[^0-9]", "", item.get("pt", ""))
+        url = ""
 
-        rows.append([title, image_url, detail_url, pt_text])
+        for link in links:
+            if (title and link["title"] == title) or (image and link["image"] == image):
+                url = link["url"]
+                break
+
+        norm_url = normalize_url(url)
+        if not url:
+            print(f"⚠️ URLマッチ失敗: {title}")
+            continue
+        if norm_url in existing_urls:
+            print(f"⏭ スキップ（重複）: {title}")
+            continue
+
+        rows.append([title, image, url, pt_text])
         existing_urls.add(norm_url)
         print(f"✅ 取得: {title}")
 
