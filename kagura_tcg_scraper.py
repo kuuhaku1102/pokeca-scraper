@@ -44,8 +44,8 @@ def fetch_existing_urls(sheet) -> set:
     records = sheet.get_all_values()
     urls = set()
     for row in records[1:]:
-        if len(row) >= 3:
-            u = row[2].strip()
+        if len(row) >= 2:
+            u = row[1].strip()  # URL列（2列目）を使用
             if u:
                 urls.add(strip_query(u))
     return urls
@@ -72,7 +72,7 @@ def parse_items(page):
                 const ptEl = box.querySelector('div.text-stone-100 span.text-base');
                 if (ptEl) pt = ptEl.textContent.replace(/\\s+/g, '');
 
-                results.push({ title: "dummy", image, url, pt });
+                results.push({ image, url, pt });
             });
             return results;
         }
@@ -111,7 +111,6 @@ def scrape_items(existing_urls: set) -> list:
         image_url = item.get("image", "").strip()
         pt_text = item.get("pt", "")
         pt_value = re.sub(r"[^0-9]", "", pt_text)
-        title = item.get("title", "dummy")
 
         if detail_url.startswith("/"):
             detail_url = urljoin(BASE_URL, detail_url)
@@ -120,13 +119,13 @@ def scrape_items(existing_urls: set) -> list:
 
         norm_url = strip_query(detail_url)
         if not norm_url:
-            print(f"⚠️ URLが空のためスキップ: {title}")
+            print("⚠️ URLが空のためスキップ")
             continue
         if norm_url in existing_urls:
-            print(f"⏭ スキップ（重複）: {title}")
+            print(f"⏭ スキップ（重複）: {norm_url}")
             continue
 
-        rows.append([title, image_url, detail_url, pt_value])
+        rows.append([image_url, detail_url, pt_value])
         existing_urls.add(norm_url)
 
     return rows
