@@ -73,18 +73,39 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                     const fig = el.querySelector('figure');
                     let image = '';
                     if (fig) {
-                        const bg = fig.style.backgroundImage || '';
-                        const m = bg.match(/url\((?:"|')?(.*?)(?:"|')?\)/);
-                        if (m) image = m[1];
+                        const img = fig.querySelector('img[src]');
+                        if (img) {
+                            image = img.src;
+                        } else {
+                            const bg = fig.style.backgroundImage || '';
+                            const m = bg.match(/url\((?:"|')?(.*?)(?:"|')?\)/);
+                            if (m) image = m[1];
+                        }
                     }
-                    const a = el.querySelector('a[href]');
                     let url = '';
-                    if (a) url = a.href;
-                    else if (el.dataset.href) url = el.dataset.href;
-                    else url = el.getAttribute('data-href') || '';
+                    const a = el.querySelector('a[href]');
+                    if (a) {
+                        url = a.href;
+                    } else if (el.dataset && el.dataset.href) {
+                        url = el.dataset.href;
+                    } else {
+                        const dh = el.getAttribute('data-href') || '';
+                        if (dh) url = dh;
+                        const oc = el.getAttribute('onclick');
+                        if (!url && oc) {
+                            const m = oc.match(/location\.href=['"](.*?)['"]/);
+                            if (m) url = m[1];
+                        }
+                    }
+                    let pt = '';
                     const ptEl = el.querySelector('div.flex.justify-end p.text-sm');
-                    const pt = ptEl ? ptEl.textContent.trim() : '';
-                    results.push({title, image, url, pt});
+                    if (ptEl) pt = ptEl.textContent.trim();
+                    if (!pt) {
+                        const txt = el.innerText;
+                        const m = txt.match(/([0-9,]+)\s*pt/);
+                        if (m) pt = m[1];
+                    }
+                    results.push({ title, image, url, pt });
                 });
                 return results;
             }
