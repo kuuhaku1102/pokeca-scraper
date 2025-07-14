@@ -37,7 +37,6 @@ def get_sheet():
 
 
 def normalize_url(url: str) -> str:
-    """URLを正規化（クエリパラメータなどを除外）"""
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
@@ -86,7 +85,6 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             """)
             page.wait_for_timeout(2000)
 
-            # デバッグ保存
             with open("cardel_debug.html", "w", encoding="utf-8") as f:
                 f.write(page.content())
 
@@ -96,8 +94,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             return rows
 
         try:
-            items = page.evaluate(
-                """
+            items = page.evaluate("""
                 () => {
                     const results = [];
                     const elements = document.querySelectorAll('div[id$="-Wrap"]');
@@ -115,6 +112,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                                 if (m) image = m[1];
                             }
                         }
+
                         let url = '';
                         const a = el.querySelector('a[href]');
                         if (a) {
@@ -130,6 +128,10 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                                 if (m) url = m[1];
                             }
                         }
+                        if (url && url.startsWith('/')) {
+                            url = 'https://cardel.online' + url;
+                        }
+
                         let pt = '';
                         const ptEl = el.querySelector('div.flex.justify-end p.text-sm');
                         if (ptEl) pt = ptEl.textContent.trim();
@@ -138,12 +140,12 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                             const m = txt.match(/([0-9,]+)\\s*pt/);
                             if (m) pt = m[1];
                         }
+
                         results.push({ title, image, url, pt });
                     });
                     return results;
                 }
-                """
-            )
+            """)
             print(f"📦 要素数: {len(items)}")
 
         except Exception as e:
@@ -154,13 +156,12 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
 
     for item in items:
         detail_url = item.get("url", "").strip()
-        if detail_url.startswith("/"):
-            detail_url = urljoin(BASE_URL, detail_url)
-        norm_url = normalize_url(detail_url)
+        if not detail_url:
+            continue
 
-        if not norm_url or norm_url in existing_urls:
-            if norm_url in existing_urls:
-                print(f"⏭ スキップ（重複）: {item.get('title', '')}")
+        norm_url = normalize_url(detail_url)
+        if norm_url in existing_urls:
+            print(f"⏭ スキップ（重複）: {item.get('title', '')}")
             continue
 
         image_url = item.get("image", "")
