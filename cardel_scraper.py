@@ -63,7 +63,6 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("div[id$='-Wrap']", timeout=60000)
 
-            # スクロール処理
             page.evaluate("""
                 async () => {
                     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -122,12 +121,13 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                         } else {
                             const dh = el.getAttribute('data-href') || '';
                             if (dh) url = dh;
-                            const oc = el.getAttribute('onclick');
-                            if (!url && oc) {
+                            if (!url) {
+                                const oc = el.getAttribute('onclick') || '';
                                 const m = oc.match(/location\\.href=['"](.*?)['"]/);
                                 if (m) url = m[1];
                             }
                         }
+
                         if (url && url.startsWith('/')) {
                             url = 'https://cardel.online' + url;
                         }
@@ -156,6 +156,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
 
     for item in items:
         detail_url = item.get("url", "").strip()
+        print(f"🧪 debug url: {detail_url}")  # デバッグ出力
+
         if not detail_url:
             continue
 
