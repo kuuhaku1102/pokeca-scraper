@@ -68,15 +68,11 @@ def parse_items(page):
                     if (m) image = m[1];
                 }
 
-                let title = '';
-                const titleEl = box.querySelector('div.text-center') || box.querySelector('h3') || box.querySelector('div.font-bold');
-                if (titleEl) title = titleEl.textContent.trim();
-
                 let pt = '';
                 const ptEl = box.querySelector('div.text-stone-100 span.text-base');
                 if (ptEl) pt = ptEl.textContent.replace(/\\s+/g, '');
 
-                results.push({ title, image, url, pt });
+                results.push({ title: "dummy", image, url, pt });
             });
             return results;
         }
@@ -113,9 +109,9 @@ def scrape_items(existing_urls: set) -> list:
     for item in items:
         detail_url = item.get("url", "").strip()
         image_url = item.get("image", "").strip()
-        title = item.get("title", "noname").strip() or "noname"
         pt_text = item.get("pt", "")
         pt_value = re.sub(r"[^0-9]", "", pt_text)
+        title = item.get("title", "dummy")
 
         if detail_url.startswith("/"):
             detail_url = urljoin(BASE_URL, detail_url)
