@@ -60,7 +60,7 @@ def scrape_items(existing_urls: set) -> list:
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
-            cards = page.query_selector_all("div.flex.flex-col.cursor-pointer")
+            total = len(page.query_selector_all("div.flex.flex-col.cursor-pointer"))
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             try:
@@ -73,11 +73,17 @@ def scrape_items(existing_urls: set) -> list:
             browser.close()
             return rows
 
-        print(f"📦 取得件数: {len(cards)}")
+        print(f"📦 取得件数: {total}")
+        index = 0
 
-        for card in cards:
+        while index < total:
             try:
-                # 詳細ページへ遷移してURLを取得
+                cards = page.query_selector_all("div.flex.flex-col.cursor-pointer")
+                if index >= len(cards):
+                    break
+
+                card = cards[index]
+
                 with page.expect_navigation():
                     card.click()
 
@@ -86,19 +92,21 @@ def scrape_items(existing_urls: set) -> list:
                 if not norm_url:
                     print("⚠️ URLが空のためスキップ")
                     page.go_back()
+                    page.wait_for_timeout(1000)
+                    index += 1
                     continue
                 if norm_url in existing_urls:
                     print(f"⏭ スキップ（重複）: {norm_url}")
                     page.go_back()
+                    page.wait_for_timeout(1000)
+                    index += 1
                     continue
 
-                # タイトル取得
                 try:
                     title = page.query_selector("h1").inner_text().strip()
                 except:
                     title = "noname"
 
-                # 画像URL取得
                 try:
                     img_tag = page.query_selector("img")
                     image_url = img_tag.get_attribute("src")
@@ -107,7 +115,6 @@ def scrape_items(existing_urls: set) -> list:
                 except:
                     image_url = ""
 
-                # pt取得
                 try:
                     pt_el = page.query_selector(".fa-coins")
                     pt_text = pt_el.evaluate("el => el.parentElement.textContent")
@@ -120,6 +127,7 @@ def scrape_items(existing_urls: set) -> list:
 
                 page.go_back()
                 page.wait_for_timeout(1000)
+                index += 1
 
             except Exception as e:
                 print(f"⚠️ アイテム処理失敗: {e}")
@@ -128,6 +136,7 @@ def scrape_items(existing_urls: set) -> list:
                 except:
                     pass
                 page.wait_for_timeout(1000)
+                index += 1
 
         browser.close()
     return rows
