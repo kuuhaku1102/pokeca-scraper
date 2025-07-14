@@ -61,9 +61,21 @@ def parse_items(page) -> List[dict]:
             const results = [];
             document.querySelectorAll('a.card-href').forEach(a => {
                 const img = a.querySelector('img');
-                const title = img ? (img.getAttribute('alt') || '').trim() : '';
+                const titleEl = a.querySelector('.gacha-title');
+                let title = '';
+                if (titleEl) title = titleEl.textContent.trim();
+                if (!title && img) title = (img.getAttribute('alt') || '').trim();
                 const image = img ? (img.getAttribute('src') || '') : '';
-                const url = a.href || '';
+
+                let url = a.getAttribute('href') || '';
+                if (!url) {
+                    url = a.dataset.href || a.dataset.url || '';
+                    const idInput = a.querySelector('input[name="identification_number"]');
+                    if (!url && idInput) {
+                        url = `/gachas/${idInput.value}`;
+                    }
+                }
+
                 const ptEl = a.querySelector('span.oripa-price');
                 let pt = '';
                 if (ptEl) pt = ptEl.textContent.replace(/\\s+/g, '');

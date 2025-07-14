@@ -528,7 +528,7 @@ The workflow `.github/workflows/scrape_kagura.yml` runs this scraper automatical
 
 ## Quest Oripa Scraper
 
-The `quest_oripa_scraper.py` script gathers gacha information from [quest-oripa.com](https://quest-oripa.com/). It uses Playwright to scrape the top page and collects the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+The `quest_oripa_scraper.py` script gathers gacha information from [quest-oripa.com](https://quest-oripa.com/). It uses Playwright to scrape the top page and collects the title, image URL, detail page URL and PT value from each entry. If an item lacks a visible title, the script falls back to the `identification_number` hidden field so that each row has a unique title. Detail URLs are extracted from either the link element or built from that identifier. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
 
 Run locally:
 
