@@ -11,7 +11,6 @@ BASE_URL = "https://kagura-tcg.com/"
 SHEET_NAME = "その他"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
-
 def save_credentials() -> str:
     encoded = os.environ.get("GSHEET_JSON", "")
     if not encoded:
@@ -19,7 +18,6 @@ def save_credentials() -> str:
     with open("credentials.json", "w") as f:
         f.write(base64.b64decode(encoded).decode("utf-8"))
     return "credentials.json"
-
 
 def get_sheet():
     creds_path = save_credentials()
@@ -34,11 +32,9 @@ def get_sheet():
     spreadsheet = client.open_by_url(SPREADSHEET_URL)
     return spreadsheet.worksheet(SHEET_NAME)
 
-
 def strip_query(url: str) -> str:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
 
 def fetch_existing_urls(sheet) -> set:
     records = sheet.get_all_values()
@@ -49,36 +45,6 @@ def fetch_existing_urls(sheet) -> set:
             if u:
                 urls.add(strip_query(u))
     return urls
-
-
-def parse_items(page):
-    return page.evaluate(
-        """
-        () => {
-            const results = [];
-            document.querySelectorAll('div.flex.flex-col.cursor-pointer').forEach(box => {
-                let url = '';
-                const link = box.closest('a');
-                if (link && link.href) url = link.href;
-
-                let image = '';
-                const imgDiv = box.querySelector('div[style*="background-image"]');
-                if (imgDiv) {
-                    const m = imgDiv.style.backgroundImage.match(/url\\(["']?(.*?)["']?\\)/);
-                    if (m) image = m[1];
-                }
-
-                let pt = '';
-                const ptEl = box.querySelector('div.text-stone-100 span.text-base');
-                if (ptEl) pt = ptEl.textContent.replace(/\\s+/g, '');
-
-                results.push({ image, url, pt });
-            });
-            return results;
-        }
-        """
-    )
-
 
 def scrape_items(existing_urls: set) -> list:
     rows = []
@@ -102,34 +68,55 @@ def scrape_items(existing_urls: set) -> list:
             browser.close()
             return rows
 
-        items = parse_items(page)
+        items = page.query_selector_all('div.flex.flex-col.cursor-pointer')
         print(f"📦 取得件数: {len(items)}")
+
+        for box in items:
+            try:
+                box.click(timeout=10000)
+                page.wait_for_load_state("domcontentloaded")
+                detail_url = page.url
+
+                image_url = ""
+                img_div = page.query_selector("div[style*='background-image']")
+                if img_div:
+                    style = img_div.get_attribute("style")
+                    match = re.search(r"url\\((?:'|\")?(.*?)(?:'|\")?\\)", style)
+                    if match:
+                        image_url = match.group(1)
+
+                pt_value = ""
+                pt_el = page.query_selector("div.text-stone-100 span.text-base")
+                if pt_el:
+                    pt_text = pt_el.inner_text().strip()
+                    pt_value = re.sub(r"[^0-9]", "", pt_text)
+
+                if detail_url.startswith("/"):
+                    detail_url = urljoin(BASE_URL, detail_url)
+                if image_url.startswith("/"):
+                    image_url = urljoin(BASE_URL, image_url)
+
+                norm_url = strip_query(detail_url)
+                if not norm_url:
+                    print("⚠️ URLが空のためスキップ")
+                    continue
+                if norm_url in existing_urls:
+                    print(f"⏭ スキップ（重複）: {norm_url}")
+                    page.go_back()
+                    continue
+
+                rows.append([image_url, detail_url, pt_value])
+                existing_urls.add(norm_url)
+
+                page.go_back()
+                page.wait_for_load_state("domcontentloaded")
+                page.wait_for_timeout(500)
+            except Exception as e:
+                print(f"⚠️ アイテム処理失敗: {e}")
+                page.go_back()
+
         browser.close()
-
-    for item in items:
-        detail_url = item.get("url", "").strip()
-        image_url = item.get("image", "").strip()
-        pt_text = item.get("pt", "")
-        pt_value = re.sub(r"[^0-9]", "", pt_text)
-
-        if detail_url.startswith("/"):
-            detail_url = urljoin(BASE_URL, detail_url)
-        if image_url.startswith("/"):
-            image_url = urljoin(BASE_URL, image_url)
-
-        norm_url = strip_query(detail_url)
-        if not norm_url:
-            print("⚠️ URLが空のためスキップ")
-            continue
-        if norm_url in existing_urls:
-            print(f"⏭ スキップ（重複）: {norm_url}")
-            continue
-
-        rows.append([image_url, detail_url, pt_value])
-        existing_urls.add(norm_url)
-
     return rows
-
 
 def main() -> None:
     sheet = get_sheet()
@@ -143,7 +130,6 @@ def main() -> None:
             print(f"❌ スプレッドシート書き込み失敗: {exc}")
     else:
         print("📭 新規データなし")
-
 
 if __name__ == "__main__":
     main()
