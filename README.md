@@ -541,3 +541,19 @@ python quest_oripa_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_quest_oripa.yml` runs this scraper automatically.
+
+## Cardel Scraper
+
+The `cardel_scraper.py` script collects pack data from [cardel.online](https://cardel.online/). It uses Playwright to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet, skipping duplicates.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+python -m playwright install
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python cardel_scraper.py
+```
+
+The workflow `.github/workflows/scrape_cardel.yml` runs this scraper automatically.
