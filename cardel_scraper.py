@@ -53,46 +53,60 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         print("🔍 cardel.online スクレイピング開始...")
+
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
             page.wait_for_selector("div[id$='-Wrap']", timeout=60000)
 
-            # 🔽 ページ下まで自動スクロール（すべてのオリパを読み込む）
+            # スクロール処理（より堅牢なバージョン）
             page.evaluate("""
                 async () => {
-                    await new Promise(resolve => {
-                        let totalHeight = 0;
-                        const distance = 100;
-                        const timer = setInterval(() => {
-                            const scrollHeight = document.body.scrollHeight;
-                            window.scrollBy(0, distance);
-                            totalHeight += distance;
-                            if (totalHeight >= scrollHeight) {
-                                clearInterval(timer);
-                                resolve();
-                            }
-                        }, 100);
-                    });
+                    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+                    let lastHeight = 0;
+                    let sameCount = 0;
+                    for (let i = 0; i < 30; i++) {
+                        window.scrollBy(0, window.innerHeight);
+                        await delay(300);
+                        const newHeight = document.body.scrollHeight;
+                        if (newHeight === lastHeight) {
+                            sameCount++;
+                            if (sameCount > 5) break;
+                        } else {
+                            sameCount = 0;
+                            lastHeight = newHeight;
+                        }
+                    }
                 }
             """)
 
-            # 💡 スクロール後に少し待機して描画完了を待つ
+            # スクロール後に2秒待機
             page.wait_for_timeout(2000)
 
-        except Exception as exc:
-            print(f"🛑 ページ読み込み失敗: {exc}")
+            # HTML保存（デバッグ用）
             html = page.content()
             with open("cardel_debug.html", "w", encoding="utf-8") as f:
                 f.write(html)
+
+            # デバッグ: 表示された画像数の確認
+            img_elements = page.query_selector_all("img")
+            print(f"🖼️ 表示された画像数: {len(img_elements)}")
+            for i, img in enumerate(img_elements[:5]):
+                print(f" - {img.get_attribute('src')}")
+
+        except Exception as exc:
+            print(f"🛑 ページ読み込み失敗: {exc}")
             browser.close()
             return rows
 
+        # アイテム取得本処理
         try:
             items = page.evaluate(
                 """
                 () => {
                     const results = [];
-                    document.querySelectorAll('div[id$="-Wrap"]').forEach(el => {
+                    const elements = document.querySelectorAll('div[id$="-Wrap"]');
+                    console.log("💡 Wrap要素数:", elements.length);
+                    elements.forEach(el => {
                         const title = el.getAttribute('title') || '';
                         const fig = el.querySelector('figure');
                         let image = '';
@@ -135,6 +149,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                 }
                 """
             )
+            print(f"📦 要素数: {len(items)}")
+
         except Exception as e:
             print("🛑 evaluate中に失敗:", e)
             items = []
@@ -167,6 +183,10 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
 def main() -> None:
     sheet = get_sheet()
     existing_urls = fetch_existing_urls(sheet)
+
+    # デバッグ用にすべて取得したい場合は以下を使う
+    # existing_urls = set()
+
     rows = scrape_items(existing_urls)
     if rows:
         sheet.append_rows(rows, value_input_option="USER_ENTERED")
