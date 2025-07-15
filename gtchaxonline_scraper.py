@@ -46,7 +46,6 @@ def fetch_existing_urls(sheet) -> set:
 
 GACHA_SELECTOR = "div.banner_base"
 IMAGE_SELECTOR = "div.image img.current"
-TITLE_SELECTOR = "div.name_area"
 PT_SELECTOR = "div.gacha_pay div"
 
 
@@ -75,8 +74,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             card = cards[index]
             index += 1
 
-            title_el = card.query_selector(TITLE_SELECTOR)
-            title = title_el.inner_text().strip() if title_el else "noname"
+            # The site does not expose a title element; use a constant value
+            title = "noname"
 
             img_el = card.query_selector(IMAGE_SELECTOR)
             image_url = img_el.get_attribute("src") if img_el else ""

@@ -560,7 +560,7 @@ The workflow `.github/workflows/scrape_cardel.yml` runs this scraper automatical
 
 ## Gtchaxonline Scraper
 
-The `gtchaxonline_scraper.py` script collects gacha information from [gtchaxonline.com](https://gtchaxonline.com/). It uses Playwright to scrape the top page, waiting for dynamic elements to load. If a detail URL is not directly available, the script clicks the item and uses the resulting page URL. New rows containing the title, image URL, detail URL and PT value are appended to the `その他` sheet while skipping duplicates.
+The `gtchaxonline_scraper.py` script collects gacha information from [gtchaxonline.com](https://gtchaxonline.com/). It uses Playwright to scrape the top page, waiting for dynamic elements to load. Because the site does not expose titles, each entry is saved with the placeholder **noname**. If a detail URL is not directly available, the script clicks the item and uses the resulting page URL. New rows containing the title, image URL, detail URL and PT value are appended to the `その他` sheet while skipping duplicates.
 
 Run locally:
 
