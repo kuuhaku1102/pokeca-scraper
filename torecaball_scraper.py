@@ -73,8 +73,14 @@ def scrape_items(existing_urls: set) -> list:
             card = cards[index]
             try:
                 # 画像
-                img = card.query_selector("img")
-                image_url = img.get_attribute("src") if img else ""
+                card.scroll_into_view_if_needed()
+                page.wait_for_timeout(300)
+                img = card.query_selector("div.Card_thumbnail__21WbN img") or card.query_selector("img")
+                image_url = ""
+                if img:
+                    image_url = page.evaluate("el => el.src", img)
+                    if not image_url:
+                        image_url = img.get_attribute("data-src") or ""
                 if image_url and image_url.startswith("/"):
                     image_url = urljoin(BASE_URL, image_url)
 
