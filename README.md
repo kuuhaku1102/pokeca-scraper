@@ -299,6 +299,8 @@ export SPREADSHEET_URL=<YOUR_SHEET_URL>
 python clove_oripa_pokemon_banner_scraper.py
 ```
 
+If scraping fails, the page HTML is saved to `clove_oripa_pokemon_banner_debug.html` for inspection.
+
 The workflow `.github/workflows/scrape_clove_oripa_pokemon_banner.yml` runs this scraper automatically.
 
 ## Oripalette Scraper
