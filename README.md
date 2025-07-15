@@ -557,3 +557,19 @@ python cardel_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_cardel.yml` runs this scraper automatically.
+
+## Gtchaxonline Scraper
+
+The `gtchaxonline_scraper.py` script collects gacha information from [gtchaxonline.com](https://gtchaxonline.com/). It uses Playwright to scrape the top page, waiting for dynamic elements to load. If a detail URL is not directly available, the script clicks the item and uses the resulting page URL. New rows containing the title, image URL, detail URL and PT value are appended to the `その他` sheet while skipping duplicates.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+python -m playwright install
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python gtchaxonline_scraper.py
+```
+
+The workflow `.github/workflows/scrape_gtchaxonline.yml` runs this scraper automatically.
