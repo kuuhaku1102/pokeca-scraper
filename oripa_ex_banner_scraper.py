@@ -6,7 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://oripaone.jp"
+BASE_URL = "https://oripa.ex-toreca.com/"
 TARGET_URL = BASE_URL
 SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
