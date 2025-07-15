@@ -58,10 +58,14 @@ def scrape_banners(existing_urls: set):
     rows = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            page.wait_for_timeout(5000)
+            page.wait_for_selector(".swiper-slide img", timeout=10000)
 
             # reveal additional slides by clicking the next button if present
             for _ in range(10):
@@ -74,7 +78,11 @@ def scrape_banners(existing_urls: set):
             slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
+            html = page.content()
+            context.close()
             browser.close()
+            with open("clove_oripa_pokemon_banner_debug.html", "w", encoding="utf-8") as f:
+                f.write(html)
             return rows
 
         for slide in slides:
@@ -93,6 +101,7 @@ def scrape_banners(existing_urls: set):
                 rows.append([src, TARGET_URL])
                 existing_urls.add(src)
 
+        context.close()
         browser.close()
 
     print(f"✅ {len(rows)} 件の新規バナー")
