@@ -286,6 +286,23 @@ python ichica_lotteries_banner_scraper.py
 
 The workflow `.github/workflows/scrape_ichica_lotteries_banner.yml` runs this scraper automatically.
 
+## Clove Oripa Pokemon Banner Scraper
+
+The `clove_oripa_pokemon_banner_scraper.py` script retrieves banner images from [oripa.clove.jp/oripa/Pokemon](https://oripa.clove.jp/oripa/Pokemon). It uses Playwright to collect each banner image URL from the top slider and appends them to the `news` sheet while skipping duplicates.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python clove_oripa_pokemon_banner_scraper.py
+```
+
+If scraping fails, the page HTML is saved to `clove_oripa_pokemon_banner_debug.html` for inspection.
+
+The workflow `.github/workflows/scrape_clove_oripa_pokemon_banner.yml` runs this scraper automatically.
+
 ## Oripalette Scraper
 
 The `oripalette_scraper.py` script collects gacha information from [oripalette.jp](https://oripalette.jp/). It uses Playwright to scrape the top page and gathers the title, image URL, detail page URL and PT value. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
