@@ -65,34 +65,37 @@ def scrape_banners(existing_urls: set):
         page = context.new_page()
         try:
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
-            # allow slider content to load
-            page.wait_for_timeout(8000)
-            page.wait_for_selector(".swiper-slide img", timeout=10000)
+            page.wait_for_timeout(5000)
 
-            # reveal additional slides by clicking the next button if present
+            # スライダーをできるだけ進める
             for _ in range(10):
                 next_btn = page.query_selector(".swiper-button-next")
                 if not next_btn:
                     break
                 next_btn.click()
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(400)
 
-            slides = page.query_selector_all(".swiper-wrapper .swiper-slide")
+            page.wait_for_selector(".swiper-slide img", timeout=10000)
+            images = page.query_selector_all(".swiper-slide img")
+
         except Exception as e:
             print(f"🛑 読み込み失敗: {e}")
+            page.screenshot(path="clove_error.png", full_page=True)
             html = page.content()
-            context.close()
-            browser.close()
             with open("clove_oripa_pokemon_banner_debug.html", "w", encoding="utf-8") as f:
                 f.write(html)
+            context.close()
+            browser.close()
             return rows
 
-        for slide in slides:
-            img = slide.query_selector("img")
-            if not img:
-                continue
+        print(f"🖼️ 検出された画像数: {len(images)}")
 
-            src = img.get_attribute("alt") or img.get_attribute("src")
+        for img in images:
+            src = (
+                img.get_attribute("src")
+                or img.get_attribute("data-src")
+                or img.get_attribute("data-lazy")
+            )
             if not src:
                 continue
             src = decode_next_image(src)
