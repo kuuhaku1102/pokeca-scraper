@@ -67,6 +67,7 @@ def scrape_banners(existing_urls: set):
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
             # allow slider content to load
             page.wait_for_timeout(8000)
+            page.wait_for_selector(".swiper-slide img", timeout=10000)
 
             # reveal additional slides by clicking the next button if present
             for _ in range(10):
