@@ -544,7 +544,7 @@ The workflow `.github/workflows/scrape_pokepa365.yml` runs this scraper automati
 
 ## Pokepa365 Banner Scraper
 
-The `pokepa365_banner_scraper.py` script retrieves banner image URLs from [pokepa365.com](https://pokepa365.com/index). It uses Playwright to cycle through the top page slider and appends the image URL and site URL to the `news` sheet while skipping duplicates.
+The `pokepa365_banner_scraper.py` script retrieves banner image URLs from [pokepa365.com](https://pokepa365.com/index). It uses Playwright to wait for the slider to render and then collects all banner images from the DOM, appending each unique image URL and site URL to the `news` sheet.
 
 Run locally:
 
