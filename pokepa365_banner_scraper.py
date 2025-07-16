@@ -55,13 +55,11 @@ def scrape_banners(existing_urls: set):
             page.goto(TARGET_URL, timeout=60000, wait_until="load")
             page.wait_for_timeout(8000)
 
-            # click through the slider to ensure images load
-            dots = page.query_selector_all(".owl-dot")
-            next_btn = page.query_selector(".owl-next")
-            if next_btn:
-                for _ in range(len(dots) or 0):
-                    next_btn.click()
-                    page.wait_for_timeout(500)
+            # wait for the banner slider to render
+            page.wait_for_selector(".owl-carousel img")
+
+            # images for all slides are present in the DOM at once, so we
+            # simply gather them without clicking through the slider
 
             images = page.query_selector_all(".owl-carousel img")
             for img in images:
