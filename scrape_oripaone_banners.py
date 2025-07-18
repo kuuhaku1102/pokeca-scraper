@@ -100,8 +100,51 @@ def fetch_with_playwright():
         try:
             page.wait_for_selector("div.overflow-hidden div.flex", timeout=60000)
         except Exception:
-            page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
+            
             page.wait_for_selector("div.overflow-hidden div.flex", timeout=60000)
+            
+
+def fetch_with_playwright_new() -> list[str]:
+    """Fetch banner images using Playwright, capturing all slides."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        context = browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/115.0.0.0 Safari/537.36"
+            ),
+            extra_http_headers={
+                "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                "Referer": "https://www.google.com/",
+            },
+        )
+        page = context.new_page()
+        page.goto(TARGET_URL, timeout=60000)
+        try:
+            page.wait_for_selector("div[aria-roledescription='slide'] img", timeout=60000)
+            page.wait_for_timeout(3000)
+        except Exception:
+                            page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
+            page.wait_for_selector("div[aria-roledescription='slide'] img", timeout=60000)
+            page.wait_for_timeout(3000)
+                img_elements = page.query_selector_all("div[aria-roledescription='slide'] img")
+        urls: list[str] = []
+        for img in img_elements:
+            srcset = img.get_attribute("srcset")
+            if srcset:
+                candidates = [s.strip().split(" ")[0] for s in srcset.split(",")]
+                urls.append(candidates[-1])
+            else:
+                src = img.get_attribute("src")
+                if src:
+                    urls.append(src)
+        context.close()
+        browser.close()
+        return urls
+
         img_elements = page.query_selector_all("div.overflow-hidden div.flex img")
         urls = []
         for img in img_elements:
@@ -121,7 +164,7 @@ def fetch_with_playwright():
 def scrape_banners(existing_urls: set):
     urls = fetch_with_requests()
     if not urls:
-        urls = fetch_with_playwright()
+        urls = fetch_with_playwright_new()
     rows = []
     if not urls:
         return rows
