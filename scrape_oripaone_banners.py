@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "https://oripaone.jp"
 TARGET_URL = BASE_URL
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-SHEET_NAME = "oripaone"
+SHEET_NAME = "news"  # ← ここを修正
 
 
 def save_credentials() -> str:
