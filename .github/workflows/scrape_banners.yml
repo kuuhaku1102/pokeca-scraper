@@ -1,6 +1,6 @@
 name: Scrape OripaOne with Playwright
 
-on:
+on:  
   workflow_dispatch:
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
           playwright install chromium
 
       - name: Run scraper
-        run: python scrape_oripaone_banners_playwright.py
+        run: python scrape_oripaone_banners.py
 
       - name: Upload banner URLs
         uses: actions/upload-artifact@v4
