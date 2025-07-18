@@ -1,9 +1,8 @@
-
 name: Scrape OripaOne with Playwright
 
 on:
-  workflow_dispatch:
-jobs:
+      workflow_dispatch:
+jobs  :
   scrape:
     runs-on: ubuntu-latest
 
@@ -18,16 +17,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-pip install playwright requests beautifulsoup4 gspread google-auth
-          playwright install chromium
+          pip install playwright requests beautifulsoup4 gspread google-auth
+              playwright install chromium
 
       - name: Run scraper
-    env:
-      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-      SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-
+        env:
+          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
+          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
         run: python scrape_oripaone_banners.py
-
 
       - name: Upload credentials
         uses: actions/upload-artifact@v4
