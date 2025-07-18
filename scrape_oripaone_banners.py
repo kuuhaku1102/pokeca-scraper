@@ -1,48 +1,47 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-oripaone.jp のトップページからバナー画像を取得するスクリプト。
-取得した画像 URL を banners.json に保存します。
-"""
-
 import json
 import requests
 from bs4 import BeautifulSoup
 
 def main():
-    url = 'https://oripaone.jp'
+    url = 'https://oripaone.jp/'
+
     headers = {
-        'User-Agent': 'Mozilla/5.0 (compatible; BannerScraper/1.0)'
+        'User-Agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/115.0.0.0 Safari/537.36'
+        ),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+        'Referer': 'https://www.google.com',
+        'DNT': '1',  # Do Not Track
+        'Upgrade-Insecure-Requests': '1'
     }
-    # ページの HTML を取得
-    resp = requests.get(url, headers=headers)
+
+    resp = requests.get(url, headers=headers, timeout=10)
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, 'html.parser')
 
-    # お知らせバナーのコンテナを特定
     container = soup.select_one('div.overflow-hidden div.flex')
     if not container:
-        raise RuntimeError("お知らせバナーのコンテナが見つかりませんでした")
+        raise RuntimeError("お知らせバナーのコンテナが見つかりません")
 
     img_tags = container.find_all('img')
     banner_urls = []
 
     for img in img_tags:
-        # srcset があれば一番大きいサイズを選択
         srcset = img.get('srcset')
         if srcset:
-            # 640w 750w のように複数指定されているので最後のURLを取得
             sources = [s.strip().split(' ')[0] for s in srcset.split(',')]
-            banner_urls.append(sources[-1])
+            banner_urls.append(sources[-1])  # 最も大きい画像
         else:
             banner_urls.append(img.get('src'))
 
-    # JSONファイルとして出力
     with open('banners.json', 'w', encoding='utf-8') as f:
         json.dump(banner_urls, f, ensure_ascii=False, indent=2)
 
-    print(f'Collected {len(banner_urls)} banner images:')
+    print(f'✅ {len(banner_urls)}件のバナー画像を取得しました')
     for url in banner_urls:
         print(url)
 
