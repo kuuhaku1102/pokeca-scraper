@@ -1,18 +1,14 @@
 import os
-import base64
-import json
-import time
-import requests
-from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+
 import gspread
 from google.oauth2.service_account import Credentials
-from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://oripaone.jp"
 TARGET_URL = BASE_URL
-SHEET_NAME = "news"
 SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
+SHEET_NAME = "oripaone"
 
 
 def save_credentials() -> str:
@@ -38,124 +34,49 @@ def get_sheet():
     return spreadsheet.worksheet(SHEET_NAME)
 
 
-def fetch_existing_image_urls(sheet) -> set:
-    records = sheet.get_all_values()
-    urls = set()
-    for row in records[1:]:
-        if len(row) >= 1:
-            urls.add(row[0].strip())
-    return urls
+def fetch_with_requests() -> list[str]:
+    # フォールバック用のシンプルなリクエスト関数（実装省略可）
+    return []
 
 
-def fetch_with_requests():
-    url = TARGET_URL
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/115.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
-        "Referer": "https://www.google.com/",
-    }
-    try:
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
-    except Exception:
-        return None
-    soup = BeautifulSoup(resp.text, "html.parser")
-    container = soup.select_one("div.overflow-hidden div.flex")
-    if not container:
-        return None
-    urls = []
-    for img in container.find_all("img"):
-        srcset = img.get("srcset")
-        if srcset:
-            candidates = [s.strip().split(" ")[0] for s in srcset.split(",")] 
-            urls.append(candidates[-1])
-        else:
-            src = img.get("src")
-            if src:
-                urls.append(src)
-    return urls
+def fetch_with_playwright() -> list[str]:
+    """旧実装の置き換えラッパー"""
+    return fetch_with_playwright_new()
 
-
-def fetch_with_playwright():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        context = browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/115.0.0.0 Safari/537.36"
-            ),
-            extra_http_headers={
-                "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
-                "Referer": "https://www.google.com/",
-            },
-        )
-        page = context.new_page()
-        page.goto(TARGET_URL, timeout=60000)
-        try:
-            page.wait_for_selector("div.overflow-hidden div.flex", timeout=60000)
-        except Exception:
-            
-            page.wait_for_selector("div.overflow-hidden div.flex", timeout=60000)
-            
 
 def fetch_with_playwright_new() -> list[str]:
-    """Fetch banner images using Playwright, capturing all slides."""
-    from playwright.sync_api import sync_playwright
-
+    """Playwrightを使用して、全スライドバナーを取得する"""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         context = browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/115.0.0.0 Safari/537.36"
-            ),
-            extra_http_headers={
-                "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
-                "Referer": "https://www.google.com/",
-            },
+                "Chrome/119.0.0.0 Safari/537.36"
+            )
         )
         page = context.new_page()
-        page.goto(TARGET_URL, timeout=60000)
+        page.goto(BASE_URL, timeout=60000)
+
+        # スライドを強制読み込み
+        page.wait_for_selector("div[aria-roledescription='slide'] img", timeout=60000)
+        page.wait_for_timeout(3000)
+
         try:
-            page.wait_for_selector("div[aria-roledescription='slide'] img", timeout=60000)
+            page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
             page.wait_for_timeout(3000)
-        except Exception:
-                            page.evaluate("window.scrollBy(0, document.body.scrollHeight)")
-            page.wait_for_selector("div[aria-roledescription='slide'] img", timeout=60000)
-            page.wait_for_timeout(3000)
-                img_elements = page.query_selector_all("div[aria-roledescription='slide'] img")
+        except:
+            pass
+
+        img_elements = page.query_selector_all("div[aria-roledescription='slide'] img")
         urls: list[str] = []
         for img in img_elements:
             srcset = img.get_attribute("srcset")
             if srcset:
-                candidates = [s.strip().split(" ")[0] for s in srcset.split(",")]
-                urls.append(candidates[-1])
-            else:
-                src = img.get_attribute("src")
-                if src:
+                src = srcset.split(" ")[0]
+                if src not in urls:
                     urls.append(src)
-        context.close()
-        browser.close()
-        return urls
 
-        img_elements = page.query_selector_all("div.overflow-hidden div.flex img")
-        urls = []
-        for img in img_elements:
-            srcset = img.get_attribute("srcset")
-            if srcset:
-                candidates = [s.strip().split(" ")[0] for s in srcset.split(",")]
-                urls.append(candidates[-1])
-            else:
-                src = img.get_attribute("src")
-                if src:
-                    urls.append(src)
         context.close()
         browser.close()
         return urls
@@ -165,30 +86,33 @@ def scrape_banners(existing_urls: set):
     urls = fetch_with_requests()
     if not urls:
         urls = fetch_with_playwright_new()
+
     rows = []
     if not urls:
         return rows
+
     for url in urls:
-        # ensure full URL if relative
-        if url.startswith("/"):
-            full_url = urljoin(BASE_URL, url)
-        else:
-            full_url = url
+        full_url = urljoin(BASE_URL, url) if url.startswith("/") else url
         if full_url not in existing_urls:
             rows.append([full_url, TARGET_URL])
             existing_urls.add(full_url)
     return rows
 
 
-def main() -> None:
+def main():
     sheet = get_sheet()
-    existing = fetch_existing_image_urls(sheet)
-    rows = scrape_banners(existing)
-    if not rows:
+    existing_urls = set()
+    records = sheet.get_all_values()
+    for row in records[1:]:
+        if len(row) >= 1:
+            existing_urls.add(row[0])
+
+    rows = scrape_banners(existing_urls)
+    if rows:
+        sheet.append_rows(rows, value_input_option="RAW")
+        print(f"✅ {len(rows)} 件追加しました")
+    else:
         print("📭 新規データなし")
-        return
-    sheet.append_rows(rows, value_input_option="USER_ENTERED")
-    print(f"📥 {len(rows)} 件追記完了")
 
 
 if __name__ == "__main__":
