@@ -24,7 +24,7 @@ jobs:
           pip install requests beautifulsoup4
 
       - name: Run scraper
-        run: python scripts/scrape_oripaone_banners.py
+        run: python scrape_oripaone_banners.py
 
       # 取得した URL をアーティファクトとして保存（任意）
       - name: Upload banner URLs
