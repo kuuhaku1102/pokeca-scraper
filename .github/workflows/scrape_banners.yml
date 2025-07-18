@@ -28,7 +28,7 @@ jobs:
 
       # 取得した URL をアーティファクトとして保存（任意）
       - name: Upload banner URLs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: oripaone-banner-urls
           path: banners.json
