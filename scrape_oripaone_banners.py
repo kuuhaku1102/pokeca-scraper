@@ -1,4 +1,5 @@
 import os
+import base64
 from urllib.parse import urljoin
 
 import gspread
@@ -35,17 +36,17 @@ def get_sheet():
 
 
 def fetch_with_requests() -> list[str]:
-    # フォールバック用のシンプルなリクエスト関数（実装省略可）
+    # 必要であれば requests ベースのフォールバックを実装
     return []
 
 
 def fetch_with_playwright() -> list[str]:
-    """旧実装の置き換えラッパー"""
+    """旧実装を廃止して、新しい実装を呼び出すラッパー"""
     return fetch_with_playwright_new()
 
 
 def fetch_with_playwright_new() -> list[str]:
-    """Playwrightを使用して、全スライドバナーを取得する"""
+    """Playwrightを用いてオリパワンのスライドバナーをすべて取得"""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         context = browser.new_context(
@@ -58,7 +59,7 @@ def fetch_with_playwright_new() -> list[str]:
         page = context.new_page()
         page.goto(BASE_URL, timeout=60000)
 
-        # スライドを強制読み込み
+        # スライドバナーが読み込まれるのを待つ
         page.wait_for_selector("div[aria-roledescription='slide'] img", timeout=60000)
         page.wait_for_timeout(3000)
 
