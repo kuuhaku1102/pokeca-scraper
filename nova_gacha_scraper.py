@@ -54,10 +54,20 @@ def fetch_existing_urls(sheet) -> set:
 
 
 def parse_items(page) -> List[dict]:
+    """Extract item data from the currently loaded page."""
     # CSS class names contain a colon and slash which must be escaped twice in
     # the JavaScript string (\\ -> \) so that the selector passed to
     # querySelectorAll contains the correct backslash escaping.
     selector = "div.w-full.md\\:w-1\\/2 section"
+
+    return page.evaluate(
+        f"""
+        () => {{
+            return Array.from(document.querySelectorAll('{selector}')).map(sec => {{
+                const link = sec.querySelector('a[href]');
+                const url = link ? link.href : '';
+                let image = '';
+                const bg = link && link.querySelector("div[style*='background-image']");
     js = textwrap.dedent(
         f"""
         () => {{
@@ -81,6 +91,13 @@ def parse_items(page) -> List[dict]:
                     const m = /url\\(("|'|)(.*?)\1\\)/.exec(bg.style.backgroundImage);
                     if (m) image = m[2];
                 }}
+                const title = sec.querySelector('h3, h2, .font-bold')?.textContent.trim() || '';
+                const pt = sec.querySelector('div.text-xl')?.textContent.trim() || '';
+                return {{ title, image, url, pt }};
+            }});
+        }}
+        """
+    )
                 if (bg) {
                     const m = /url\(("|')?(.*?)\1\)/.exec(bg.style.backgroundImage);
                     if (m) image = m[2];
