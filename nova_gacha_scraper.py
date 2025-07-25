@@ -63,6 +63,15 @@ def parse_items(page) -> List[dict]:
         () => {{
             const results = [];
             document.querySelectorAll('{selector}').forEach(sec => {{
+    js = f"""
+        () => {{
+            const results = [];
+            document.querySelectorAll('{selector}').forEach(sec => {{
+    return page.evaluate(
+        """
+        () => {
+            const results = [];
+            document.querySelectorAll('div.w-full.md\:w-1\/2 section').forEach(sec => {
                 const link = sec.querySelector('a[href]');
                 if (!link) return;
                 const url = link.href;
@@ -72,6 +81,10 @@ def parse_items(page) -> List[dict]:
                     const m = /url\\(("|'|)(.*?)\1\\)/.exec(bg.style.backgroundImage);
                     if (m) image = m[2];
                 }}
+                if (bg) {
+                    const m = /url\(("|')?(.*?)\1\)/.exec(bg.style.backgroundImage);
+                    if (m) image = m[2];
+                }
                 let title = '';
                 const t = sec.querySelector('h3, h2, .font-bold');
                 if (t) title = t.textContent.trim();
@@ -85,6 +98,14 @@ def parse_items(page) -> List[dict]:
         """
     )
     return page.evaluate(js)
+    """
+    return page.evaluate(js)
+                results.push({title, image, url, pt});
+            });
+            return results;
+        }
+        """
+    )
 
 
 def scrape_items(existing_urls: set) -> List[List[str]]:
