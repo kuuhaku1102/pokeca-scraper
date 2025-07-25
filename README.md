@@ -650,3 +650,19 @@ python gtchaxonline_scraper.py
 ```
 
 The workflow `.github/workflows/scrape_gtchaxonline.yml` runs this scraper automatically.
+
+## Nova Gacha Scraper
+
+The `nova_gacha_scraper.py` script collects gacha information from [novagacha.com](https://www.novagacha.com/?tab=gacha&category=2). It uses Playwright to scrape the listing page and gathers the title, image URL, detail page URL and PT value from each entry. New rows are appended to the `その他` sheet while skipping entries with duplicate URLs.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+python -m playwright install
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python nova_gacha_scraper.py
+```
+
+The workflow `.github/workflows/scrape_novagacha.yml` runs this scraper automatically.
