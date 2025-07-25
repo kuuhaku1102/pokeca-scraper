@@ -53,6 +53,14 @@ def fetch_existing_urls(sheet) -> set:
 
 
 def parse_items(page) -> List[dict]:
+    # CSS class names contain a colon and slash which must be escaped twice in
+    # the JavaScript string (\\ -> \) so that the selector passed to
+    # querySelectorAll contains the correct backslash escaping.
+    selector = "div.w-full.md\\:w-1\\/2 section"
+    js = f"""
+        () => {{
+            const results = [];
+            document.querySelectorAll('{selector}').forEach(sec => {{
     return page.evaluate(
         """
         () => {
@@ -63,6 +71,10 @@ def parse_items(page) -> List[dict]:
                 const url = link.href;
                 let image = '';
                 const bg = link.querySelector("div[style*='background-image']");
+                if (bg) {{
+                    const m = /url\\(("|'|)(.*?)\1\\)/.exec(bg.style.backgroundImage);
+                    if (m) image = m[2];
+                }}
                 if (bg) {
                     const m = /url\(("|')?(.*?)\1\)/.exec(bg.style.backgroundImage);
                     if (m) image = m[2];
@@ -73,6 +85,12 @@ def parse_items(page) -> List[dict]:
                 let pt = '';
                 const ptEl = sec.querySelector('div.text-xl');
                 if (ptEl) pt = ptEl.textContent.trim();
+                results.push({{title, image, url, pt}});
+            }});
+            return results;
+        }}
+    """
+    return page.evaluate(js)
                 results.push({title, image, url, pt});
             });
             return results;
