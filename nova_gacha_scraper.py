@@ -2,6 +2,7 @@ import os
 import base64
 import re
 from typing import List
+import textwrap
 from urllib.parse import urljoin, urlparse
 
 import gspread
@@ -67,6 +68,25 @@ def parse_items(page) -> List[dict]:
                 const url = link ? link.href : '';
                 let image = '';
                 const bg = link && link.querySelector("div[style*='background-image']");
+    js = textwrap.dedent(
+        f"""
+        () => {{
+            const results = [];
+            document.querySelectorAll('{selector}').forEach(sec => {{
+    js = f"""
+        () => {{
+            const results = [];
+            document.querySelectorAll('{selector}').forEach(sec => {{
+    return page.evaluate(
+        """
+        () => {
+            const results = [];
+            document.querySelectorAll('div.w-full.md\:w-1\/2 section').forEach(sec => {
+                const link = sec.querySelector('a[href]');
+                if (!link) return;
+                const url = link.href;
+                let image = '';
+                const bg = link.querySelector("div[style*='background-image']");
                 if (bg) {{
                     const m = /url\\(("|'|)(.*?)\1\\)/.exec(bg.style.backgroundImage);
                     if (m) image = m[2];
@@ -76,6 +96,31 @@ def parse_items(page) -> List[dict]:
                 return {{ title, image, url, pt }};
             }});
         }}
+        """
+    )
+                if (bg) {
+                    const m = /url\(("|')?(.*?)\1\)/.exec(bg.style.backgroundImage);
+                    if (m) image = m[2];
+                }
+                let title = '';
+                const t = sec.querySelector('h3, h2, .font-bold');
+                if (t) title = t.textContent.trim();
+                let pt = '';
+                const ptEl = sec.querySelector('div.text-xl');
+                if (ptEl) pt = ptEl.textContent.trim();
+                results.push({{title, image, url, pt}});
+            }});
+            return results;
+        }}
+        """
+    )
+    return page.evaluate(js)
+    """
+    return page.evaluate(js)
+                results.push({title, image, url, pt});
+            });
+            return results;
+        }
         """
     )
 
