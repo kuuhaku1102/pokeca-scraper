@@ -2,6 +2,7 @@ import os
 import base64
 import re
 from typing import List
+import textwrap
 from urllib.parse import urljoin, urlparse
 
 import gspread
@@ -57,6 +58,11 @@ def parse_items(page) -> List[dict]:
     # the JavaScript string (\\ -> \) so that the selector passed to
     # querySelectorAll contains the correct backslash escaping.
     selector = "div.w-full.md\\:w-1\\/2 section"
+    js = textwrap.dedent(
+        f"""
+        () => {{
+            const results = [];
+            document.querySelectorAll('{selector}').forEach(sec => {{
     js = f"""
         () => {{
             const results = [];
@@ -89,6 +95,9 @@ def parse_items(page) -> List[dict]:
             }});
             return results;
         }}
+        """
+    )
+    return page.evaluate(js)
     """
     return page.evaluate(js)
                 results.push({title, image, url, pt});
