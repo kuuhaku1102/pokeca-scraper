@@ -8,7 +8,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://www.novagacha.com/?tab=gacha&category=2"
+BASE_URL = "https://www.novagacha.com"
+TARGET_URL = "https://www.novagacha.com/?tab=gacha&category=2"
 SHEET_NAME = "その他"
 
 
@@ -53,26 +54,35 @@ def fetch_existing_urls(sheet) -> set:
 
 
 def parse_items(page) -> List[dict]:
-    selector = "div.w-full.md\\:w-1\\/2 section"
-    js = f"""
-    () => {{
+    js = """
+    () => {
         const results = [];
-        document.querySelectorAll('{selector}').forEach(sec => {{
+        document.querySelectorAll('section.flex.flex-col.px-1').forEach(sec => {
             const link = sec.querySelector('a[href]');
             if (!link) return;
+
             const url = link.href;
+
+            // 画像URL
             let image = '';
-            const bg = link.querySelector("div[style*='background-image']");
-            if (bg) {{
-                const m = /url\\(("|'|)(.*?)\\1\\)/.exec(bg.style.backgroundImage);
-                if (m) image = m[2];
-            }}
-            const title = sec.querySelector('h3, h2, .font-bold')?.textContent.trim() || '';
-            const pt = sec.querySelector('div.text-xl')?.textContent.trim() || '';
-            results.push({{ title, image, url, pt }});
-        }});
+            const bgDiv = sec.querySelector("div.bg-cover");
+            if (bgDiv) {
+                const match = /url\\(["']?(.*?)["']?\\)/.exec(bgDiv.style.backgroundImage);
+                if (match) image = match[1];
+            }
+
+            // ポイント
+            let pt = '';
+            const ptEl = sec.querySelector("div.text-xl");
+            if (ptEl) pt = ptEl.textContent.trim();
+
+            // タイトル（現状HTMLにないため固定値）
+            const title = "noname";
+
+            results.push({ title, image, url, pt });
+        });
         return results;
-    }}
+    }
     """
     return page.evaluate(js)
 
@@ -84,8 +94,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         page = browser.new_page()
         print("🔍 novagacha.com スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('div.w-full.md\\:w-1\\/2 section', timeout=60000)
+            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_selector('section.flex.flex-col.px-1', timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
@@ -105,9 +115,9 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         pt_value = re.sub(r"[^0-9]", "", pt_text)
 
         if detail_url.startswith("/"):
-            detail_url = urljoin("https://www.novagacha.com", detail_url)
+            detail_url = urljoin(BASE_URL, detail_url)
         if image_url.startswith("/"):
-            image_url = urljoin("https://www.novagacha.com", image_url)
+            image_url = urljoin(BASE_URL, image_url)
 
         norm_url = normalize_url(detail_url)
         if not detail_url or norm_url in existing_urls:
