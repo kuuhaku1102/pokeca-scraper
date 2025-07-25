@@ -2,7 +2,6 @@ import os
 import base64
 import re
 from typing import List
-import textwrap
 from urllib.parse import urljoin, urlparse
 
 import gspread
@@ -54,75 +53,28 @@ def fetch_existing_urls(sheet) -> set:
 
 
 def parse_items(page) -> List[dict]:
-    """Extract item data from the currently loaded page."""
-    # CSS class names contain a colon and slash which must be escaped twice in
-    # the JavaScript string (\\ -> \) so that the selector passed to
-    # querySelectorAll contains the correct backslash escaping.
     selector = "div.w-full.md\\:w-1\\/2 section"
-
-    return page.evaluate(
-        f"""
-        () => {{
-            return Array.from(document.querySelectorAll('{selector}')).map(sec => {{
-                const link = sec.querySelector('a[href]');
-                const url = link ? link.href : '';
-                let image = '';
-                const bg = link && link.querySelector("div[style*='background-image']");
-    js = textwrap.dedent(
-        f"""
-        () => {{
-            const results = [];
-            document.querySelectorAll('{selector}').forEach(sec => {{
     js = f"""
-        () => {{
-            const results = [];
-            document.querySelectorAll('{selector}').forEach(sec => {{
-    return page.evaluate(
-        """
-        () => {
-            const results = [];
-            document.querySelectorAll('div.w-full.md\:w-1\/2 section').forEach(sec => {
-                const link = sec.querySelector('a[href]');
-                if (!link) return;
-                const url = link.href;
-                let image = '';
-                const bg = link.querySelector("div[style*='background-image']");
-                if (bg) {{
-                    const m = /url\\(("|'|)(.*?)\1\\)/.exec(bg.style.backgroundImage);
-                    if (m) image = m[2];
-                }}
-                const title = sec.querySelector('h3, h2, .font-bold')?.textContent.trim() || '';
-                const pt = sec.querySelector('div.text-xl')?.textContent.trim() || '';
-                return {{ title, image, url, pt }};
-            }});
-        }}
-        """
-    )
-                if (bg) {
-                    const m = /url\(("|')?(.*?)\1\)/.exec(bg.style.backgroundImage);
-                    if (m) image = m[2];
-                }
-                let title = '';
-                const t = sec.querySelector('h3, h2, .font-bold');
-                if (t) title = t.textContent.trim();
-                let pt = '';
-                const ptEl = sec.querySelector('div.text-xl');
-                if (ptEl) pt = ptEl.textContent.trim();
-                results.push({{title, image, url, pt}});
-            }});
-            return results;
-        }}
-        """
-    )
-    return page.evaluate(js)
+    () => {{
+        const results = [];
+        document.querySelectorAll('{selector}').forEach(sec => {{
+            const link = sec.querySelector('a[href]');
+            if (!link) return;
+            const url = link.href;
+            let image = '';
+            const bg = link.querySelector("div[style*='background-image']");
+            if (bg) {{
+                const m = /url\\(("|'|)(.*?)\\1\\)/.exec(bg.style.backgroundImage);
+                if (m) image = m[2];
+            }}
+            const title = sec.querySelector('h3, h2, .font-bold')?.textContent.trim() || '';
+            const pt = sec.querySelector('div.text-xl')?.textContent.trim() || '';
+            results.push({{ title, image, url, pt }});
+        }});
+        return results;
+    }}
     """
     return page.evaluate(js)
-                results.push({title, image, url, pt});
-            });
-            return results;
-        }
-        """
-    )
 
 
 def scrape_items(existing_urls: set) -> List[List[str]]:
@@ -133,7 +85,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         print("🔍 novagacha.com スクレイピング開始...")
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('div.w-full.md\:w-1\/2 section', timeout=60000)
+            page.wait_for_selector('div.w-full.md\\:w-1\\/2 section', timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
