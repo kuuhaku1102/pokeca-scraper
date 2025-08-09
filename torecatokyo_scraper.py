@@ -15,6 +15,7 @@ TARGET_URLS = [
     "https://torecatokyo.com/",
     "https://torecatokyo.com/gacha/",
 ]
+TARGET_URL = "https://torecatokyo.com/gacha/"
 SHEET_NAME = "その他"
 
 
@@ -109,10 +110,37 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
                 print(f"⚠️ {url} の読み込み失敗: {exc}")
         if not success:
             print("🛑 ページ読み込み失敗: すべてのURLで要素取得に失敗")
+
+        context = browser.new_context(
+            user_agent=
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
+        print("🔍 torecatokyo.com スクレイピング開始...")
+        try:
+            response = page.goto(
+                TARGET_URL, timeout=120000, wait_until="domcontentloaded"
+            )
+            if response and not response.ok:
+                raise RuntimeError(f"HTTP {response.status}")
+            page.wait_for_selector("li.gacha_list_card", timeout=60000)
+        except Exception as exc:
+            print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
             with open("torecatokyo_debug.html", "w", encoding="utf-8") as f:
                 f.write(html)
             context.close()
+        page = browser.new_page()
+        print("🔍 torecatokyo.com スクレイピング開始...")
+        try:
+            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_selector('li.gacha_list_card', timeout=60000)
+        except Exception as exc:
+            print(f"🛑 ページ読み込み失敗: {exc}")
+            html = page.content()
+            with open('torecatokyo_debug.html', 'w', encoding='utf-8') as f:
+                f.write(html)
             browser.close()
             return rows
 
