@@ -9,6 +9,12 @@ from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://torecatokyo.com"
+# Listing may appear on top page or /gacha/ depending on the site state
+# so attempt both URLs.
+TARGET_URLS = [
+    "https://torecatokyo.com/",
+    "https://torecatokyo.com/gacha/",
+]
 TARGET_URL = "https://torecatokyo.com/gacha/"
 SHEET_NAME = "その他"
 
@@ -83,6 +89,27 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        context = browser.new_context(
+            user_agent=
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            extra_http_headers={"Accept-Language": "ja-JP,ja;q=0.9"},
+        )
+        page = context.new_page()
+        print("🔍 torecatokyo.com スクレイピング開始...")
+        success = False
+        for url in TARGET_URLS:
+            try:
+                response = page.goto(url, timeout=120000, wait_until="networkidle")
+                if response and not response.ok:
+                    raise RuntimeError(f"HTTP {response.status}")
+                page.wait_for_selector("li.gacha_list_card", timeout=120000)
+                success = True
+                break
+            except Exception as exc:
+                print(f"⚠️ {url} の読み込み失敗: {exc}")
+        if not success:
+            print("🛑 ページ読み込み失敗: すべてのURLで要素取得に失敗")
 
         context = browser.new_context(
             user_agent=
