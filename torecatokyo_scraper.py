@@ -83,6 +83,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+
         context = browser.new_context(
             user_agent=
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -103,6 +104,16 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             with open("torecatokyo_debug.html", "w", encoding="utf-8") as f:
                 f.write(html)
             context.close()
+        page = browser.new_page()
+        print("🔍 torecatokyo.com スクレイピング開始...")
+        try:
+            page.goto(TARGET_URL, timeout=60000, wait_until="networkidle")
+            page.wait_for_selector('li.gacha_list_card', timeout=60000)
+        except Exception as exc:
+            print(f"🛑 ページ読み込み失敗: {exc}")
+            html = page.content()
+            with open('torecatokyo_debug.html', 'w', encoding='utf-8') as f:
+                f.write(html)
             browser.close()
             return rows
 
