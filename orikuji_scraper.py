@@ -59,6 +59,15 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
 
             # Scroll to the bottom repeatedly so that the site loads all
+
+            # available gacha boxes (the page uses infinite scroll). Some
+            # content is injected asynchronously after the initial page load,
+            # so wait for at least one box to appear before starting the
+            # scrolling loop.
+            def scroll_to_bottom(page, selector="div.white-box", max_scrolls=50, pause_ms=500):
+                page.wait_for_selector(selector, timeout=60000)
+                last_count = 0
+                stagnant = 0
             # available gacha boxes (the page uses infinite scroll).
             def scroll_to_bottom(page, selector="div.white-box", max_scrolls=50, pause_ms=500):
                 last_count = 0
@@ -73,6 +82,12 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
                     except Exception:
                         pass
                     curr_count = len(page.query_selector_all(selector))
+                    if curr_count == last_count:
+                        stagnant += 1
+                        if stagnant >= 2:
+                            break
+                    else:
+                        stagnant = 0
                     if curr_count <= last_count:
                         break
                     last_count = curr_count
