@@ -58,23 +58,27 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
             # scraping the required elements.
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
 
-            # 強化: すべてのwhite-boxを順番にscrollIntoViewして仮想リスト系の要素も表示させる
-            def scroll_to_load_all(page, selector="div.white-box", max_tries=30):
-                prev_count = 0
-                for i in range(max_tries):
-                    boxes = page.query_selector_all(selector)
-                    for box in boxes:
-                        try:
-                            box.scroll_into_view_if_needed()
-                            page.wait_for_timeout(150)
-                        except Exception:
-                            pass
+            # Scroll to the bottom repeatedly so that the site loads all
+            # available gacha boxes (the page uses infinite scroll).
+            def scroll_to_bottom(page, selector="div.white-box", max_scrolls=50, pause_ms=500):
+                last_count = 0
+                for _ in range(max_scrolls):
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    page.wait_for_timeout(pause_ms)
+                    try:
+                        load_more = page.query_selector("button:has-text('もっと見る')")
+                        if load_more:
+                            load_more.click()
+                            page.wait_for_timeout(pause_ms)
+                    except Exception:
+                        pass
                     curr_count = len(page.query_selector_all(selector))
-                    if curr_count == prev_count:
+                    if curr_count <= last_count:
                         break
-                    prev_count = curr_count
-                print(f"👀 {curr_count}件の {selector} を検出")
-            scroll_to_load_all(page)
+                    last_count = curr_count
+                print(f"👀 {last_count}件の {selector} を検出")
+
+            scroll_to_bottom(page)
 
             page.wait_for_selector("div.white-box img", timeout=60000)
 
