@@ -41,7 +41,9 @@ driver.get("https://oripaone.jp/")
 
 try:
     WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "div.relative.overflow-hidden.rounded.bg-white.shadow"))
+        EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "div.relative.overflow-hidden.bg-white.shadow")
+        )
     )
 except:
     print("❌ 要素が読み込まれませんでした。")
@@ -50,7 +52,7 @@ except:
 
 # --- HTML取得とパース ---
 soup = BeautifulSoup(driver.page_source, "html.parser")
-cards = soup.select("div.relative.overflow-hidden.rounded.bg-white.shadow")
+cards = soup.select("div.relative.overflow-hidden.bg-white.shadow")
 
 results = []
 for card in cards:
