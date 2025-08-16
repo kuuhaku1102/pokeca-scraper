@@ -96,7 +96,8 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
                         const image = imgSrc;
                         const url = link.getAttribute('href') || '';
                         const ptEl = box.querySelector('span.coin-area');
-                        const pt = ptEl ? ptEl.textContent.trim() : '';
+                        const rawPt = ptEl ? ptEl.textContent : '';
+                        const pt = rawPt.replace(/\D/g, '');
                         results.push({ title, image, url, pt });
                     });
                     return results;
