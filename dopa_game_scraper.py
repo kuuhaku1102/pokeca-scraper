@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 from typing import List
 
 import gspread
+from google.auth.exceptions import TransportError
 from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
 
@@ -35,8 +36,12 @@ def get_sheet():
     client = gspread.authorize(creds)
     if not SPREADSHEET_URL:
         raise RuntimeError("SPREADSHEET_URL environment variable is missing")
-    spreadsheet = client.open_by_url(SPREADSHEET_URL)
-    return spreadsheet.worksheet(SHEET_NAME)
+    try:
+        spreadsheet = client.open_by_url(SPREADSHEET_URL)
+        return spreadsheet.worksheet(SHEET_NAME)
+    except TransportError as exc:
+        print(f"❌ Google Sheets 接続失敗: {exc}")
+        return None
 
 def fetch_existing_urls(sheet) -> set:
     records = sheet.get_all_values()
@@ -113,6 +118,9 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
 
 def main() -> None:
     sheet = get_sheet()
+    if sheet is None:
+        print("📭 シート取得なし")
+        return
     existing_urls = fetch_existing_urls(sheet)
     rows = scrape_items(existing_urls)
     if not rows:
