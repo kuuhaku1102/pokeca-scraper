@@ -37,7 +37,7 @@ with sync_playwright() as p:
         try:
             url = f"https://pokeca.com/?page={page_num}"
             page.goto(url, timeout=60000, wait_until="domcontentloaded")
-            page.wait_for_load_state("networkidle", timeout=60000)
+            page.wait_for_selector("div.original-packs-card", timeout=60000)
         except Exception as e:
             print(f"🛑 ページ読み込みエラー: {str(e)}")
             page.screenshot(path=f"error_screenshot_page{page_num}.png")
@@ -50,16 +50,6 @@ with sync_playwright() as p:
         html = page.content()
         with open(f"page_debug_{page_num}.html", "w", encoding="utf-8") as f:
             f.write(html)
-
-        try:
-            page.wait_for_selector("div.original-packs-card", timeout=10000)
-        except Exception:
-            print(f"🛑 ページ {page_num} で要素が読み込まれませんでした。")
-            page.screenshot(path=f"error_screenshot_page{page_num}.png")
-            html = page.content()
-            with open(f"error_page_{page_num}.html", "w", encoding="utf-8") as f:
-                f.write(html)
-            break
 
         soup = BeautifulSoup(html, "html.parser")
         cards = soup.select("div.original-packs-card")
