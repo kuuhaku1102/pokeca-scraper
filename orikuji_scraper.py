@@ -52,7 +52,11 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
         print("🔍 orikuji.com スクレイピング開始...")
 
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            # The site continuously opens network connections which prevents
+            # Playwright from reaching a "networkidle" state and results in a
+            # timeout. Waiting for the DOM content instead is sufficient for
+            # scraping the required elements.
+            page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
 
             # 強化: すべてのwhite-boxを順番にscrollIntoViewして仮想リスト系の要素も表示させる
             def scroll_to_load_all(page, selector="div.white-box", max_tries=30):
@@ -92,7 +96,8 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
                         const image = imgSrc;
                         const url = link.getAttribute('href') || '';
                         const ptEl = box.querySelector('span.coin-area');
-                        const pt = ptEl ? ptEl.textContent.trim() : '';
+                        const rawPt = ptEl ? ptEl.textContent : '';
+                        const pt = rawPt.replace(/\D/g, '');
                         results.push({ title, image, url, pt });
                     });
                     return results;
