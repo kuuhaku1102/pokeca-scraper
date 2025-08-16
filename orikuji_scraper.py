@@ -64,6 +64,29 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
             # content is injected asynchronously after the initial page load,
             # so wait for at least one box to appear before starting the
             # scrolling loop.
+            selector = "div.white-box"
+            page.wait_for_selector(selector, timeout=60000)
+            last_count = 0
+            stable_loops = 0
+            for _ in range(50):
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(500)
+                try:
+                    load_more = page.query_selector("button:has-text('もっと見る')")
+                    if load_more:
+                        load_more.click()
+                        page.wait_for_timeout(500)
+                except Exception:
+                    pass
+                curr_count = len(page.query_selector_all(selector))
+                if curr_count == last_count:
+                    stable_loops += 1
+                else:
+                    stable_loops = 0
+                last_count = curr_count
+                if stable_loops >= 2:
+                    break
+            print(f"👀 {last_count}件の {selector} を検出")
             def scroll_to_bottom(page, selector="div.white-box", max_scrolls=50, pause_ms=500):
                 page.wait_for_selector(selector, timeout=60000)
                 last_count = 0
