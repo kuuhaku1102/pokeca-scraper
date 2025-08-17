@@ -52,53 +52,59 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
         print("🔍 orikuji.com スクレイピング開始...")
 
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            # The site continuously opens network connections which prevents
+            # Playwright from reaching a "networkidle" state and results in a
+            # timeout. Waiting for the DOM content instead is sufficient for
+            # scraping the required elements.
+            page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
 
-            # 強化: すべてのwhite-boxを順番にscrollIntoViewして仮想リスト系の要素も表示させる
-            def scroll_to_load_all(page, selector="div.white-box", max_tries=30):
-                prev_count = 0
-                for i in range(max_tries):
-                    boxes = page.query_selector_all(selector)
-                    for box in boxes:
-                        try:
-                            box.scroll_into_view_if_needed()
-                            page.wait_for_timeout(150)
-                        except Exception:
-                            pass
-                    curr_count = len(page.query_selector_all(selector))
-                    if curr_count == prev_count:
-                        break
-                    prev_count = curr_count
-                print(f"👀 {curr_count}件の {selector} を検出")
-            scroll_to_load_all(page)
+            # Scroll to the bottom repeatedly so that the site loads all
+            # available gacha boxes (the page uses infinite scroll). Some
+            # content is injected asynchronously after the initial page load,
+            # so wait for at least one box to appear before starting the
+            # scrolling loop.
+            selector = "div.white-box"
+            page.wait_for_selector(selector, timeout=60000)
+            last_count = 0
+            stable_loops = 0
+            for _ in range(50):
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(500)
+                try:
+                    load_more = page.query_selector("button:has-text('もっと見る')")
+                    if load_more:
+                        load_more.click()
+                        page.wait_for_timeout(500)
+                except Exception:
+                    pass
+                curr_count = len(page.query_selector_all(selector))
+                if curr_count == last_count:
+                    stable_loops += 1
+                else:
+                    stable_loops = 0
+                last_count = curr_count
+                if stable_loops >= 2:
+                    break
+            print(f"👀 {last_count}件の {selector} を検出")
 
             page.wait_for_selector("div.white-box img", timeout=60000)
 
-            items = page.evaluate(
-                """
-                () => {
-                    const results = [];
-                    document.querySelectorAll('div.white-box').forEach(box => {
-                        const link = box.querySelector('a[href*="/gacha/"]');
-                        const img = box.querySelector('div.image-container img');
-                        if (!link || !img) return;
-                        const imgSrc = img.getAttribute('data-src') || img.getAttribute('src') || '';
-                        if (
-                            imgSrc.includes('/img/coin.png') ||
-                            imgSrc.includes('/coin/lb_coin_')
-                        ) return;
+            items = []
+            for box in page.query_selector_all("div.white-box"):
+                link = box.query_selector("a[href*='/gacha/']")
+                img = box.query_selector("div.image-container img")
+                if not link or not img:
+                    continue
+                img_src = img.get_attribute("data-src") or img.get_attribute("src") or ""
+                if "/img/coin.png" in img_src or "/coin/lb_coin_" in img_src:
+                    continue
+                title = img.get_attribute("alt") or "noname"
+                url = link.get_attribute("href") or ""
+                pt_el = box.query_selector("span.coin-area")
+                raw_pt = pt_el.inner_text().strip() if pt_el else ""
+                pt = "".join(ch for ch in raw_pt if ch.isdigit())
+                items.append({"title": title, "image": img_src, "url": url, "pt": pt})
 
-                        const title = img.getAttribute('alt') || 'noname';
-                        const image = imgSrc;
-                        const url = link.getAttribute('href') || '';
-                        const ptEl = box.querySelector('span.coin-area');
-                        const pt = ptEl ? ptEl.textContent.trim() : '';
-                        results.push({ title, image, url, pt });
-                    });
-                    return results;
-                }
-                """
-            )
             print(f"取得したitems件数: {len(items)}")
             for item in items:
                 print(f"item url: {item.get('url', '')}")
