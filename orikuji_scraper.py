@@ -59,7 +59,6 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
 
             # Scroll to the bottom repeatedly so that the site loads all
-
             # available gacha boxes (the page uses infinite scroll). Some
             # content is injected asynchronously after the initial page load,
             # so wait for at least one box to appear before starting the
@@ -87,6 +86,25 @@ def scrape_orikuji(existing_paths: set) -> List[List[str]]:
                 if stable_loops >= 2:
                     break
             print(f"👀 {last_count}件の {selector} を検出")
+
+            page.wait_for_selector("div.white-box img", timeout=60000)
+
+            items = []
+            for box in page.query_selector_all("div.white-box"):
+                link = box.query_selector("a[href*='/gacha/']")
+                img = box.query_selector("div.image-container img")
+                if not link or not img:
+                    continue
+                img_src = img.get_attribute("data-src") or img.get_attribute("src") or ""
+                if "/img/coin.png" in img_src or "/coin/lb_coin_" in img_src:
+                    continue
+                title = img.get_attribute("alt") or "noname"
+                url = link.get_attribute("href") or ""
+                pt_el = box.query_selector("span.coin-area")
+                raw_pt = pt_el.inner_text().strip() if pt_el else ""
+                pt = "".join(ch for ch in raw_pt if ch.isdigit())
+                items.append({"title": title, "image": img_src, "url": url, "pt": pt})
+
             def scroll_to_bottom(page, selector="div.white-box", max_scrolls=50, pause_ms=500):
                 page.wait_for_selector(selector, timeout=60000)
                 last_count = 0
