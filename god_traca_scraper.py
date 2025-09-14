@@ -86,6 +86,11 @@ def parse_items(page) -> List[dict]:
                 let url = '';
                 const a = el.querySelector('a[href]');
                 if (a) url = a.getAttribute('href') || '';
+                if (!url) {
+                    const id = el.id || '';
+                    const m = id.match(/(\d+)-Wrap/);
+                    if (m) url = `/gacha/${m[1]}`;
+                }
                 let pt = '';
                 const ptP = el.querySelector('div.gacha-point p:nth-child(2)');
                 if (ptP) pt = ptP.textContent.trim();
@@ -124,6 +129,8 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         title = item.get("title", "").strip() or "noname"
         pt_text = item.get("pt", "").strip()
 
+        if not detail_url:
+            continue
         if detail_url.startswith("/"):
             detail_url = urljoin(BASE_URL, detail_url)
         if image_url.startswith("/"):
