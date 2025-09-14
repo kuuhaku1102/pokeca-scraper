@@ -73,7 +73,7 @@ def parse_items(page) -> List[dict]:
             const results = [];
             document.querySelectorAll('div.banner_base.banner').forEach(box => {
                 const img = box.querySelector('img.current') || box.querySelector('img');
-                const image = img ? (img.getAttribute('src') || '') : '';
+                const image = img ? (img.getAttribute('data-src') || img.getAttribute('src') || '') : '';
                 let title = img ? (img.getAttribute('alt') || img.getAttribute('title') || '').trim() : '';
                 if (!title) {
                     const tEl = box.querySelector('.name_area-info') || box.querySelector('.name_area');
@@ -83,8 +83,11 @@ def parse_items(page) -> List[dict]:
                 const a = box.querySelector('a[href]');
                 if (a) url = a.getAttribute('href') || '';
                 if (!url) {
-                    const m = image.match(/\/pack\/(\d+)/);
-                    if (m) url = `/pack/${m[1]}`;
+                    const m = image.match(/\/(pack|gacha)\/(\d+)/);
+                    if (m) {
+                        const prefix = m[1] === 'gacha' ? '/gacha' : '/pack';
+                        url = `${prefix}/${m[2]}`;
+                    }
                 }
                 let pt = '';
                 const ptEl = box.querySelector('.point') || box.querySelector('.point_area') || box.querySelector('div.point');
@@ -109,7 +112,9 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         page = browser.new_page()
         print("🔍 oripalette.jp スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            # The site keeps long-running network connections (e.g. websockets),
+            # so waiting for "networkidle" causes page.goto to time out.
+            page.goto(BASE_URL, timeout=60000)
             page.wait_for_selector("div.banner_base.banner", timeout=60000)
             wait_until_banners(page)
         except Exception as exc:
@@ -132,6 +137,9 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
             if image_url.startswith("/"):
                 image_url = urljoin(BASE_URL, image_url)
 
+            # Skip entries where URL could not be determined
+            if not detail_url:
+                continue
             if detail_url in existing_urls:
                 continue
 
