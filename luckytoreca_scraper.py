@@ -52,7 +52,7 @@ def parse_items(page) -> List[dict]:
         """
         () => {
             const results = [];
-            document.querySelectorAll('div.treca-body').forEach(card => {
+            document.querySelectorAll('div.value__item').forEach(card => {
                 let url = '';
                 const anchor = card.querySelector('a[href]') || card.closest('a[href]');
                 if (anchor) url = anchor.href;
@@ -61,11 +61,11 @@ def parse_items(page) -> List[dict]:
                 let title = '';
                 if (img) title = (img.getAttribute('alt') || img.getAttribute('title') || '').trim();
                 if (!title) {
-                    const t = card.querySelector('.treca-title, h3, p');
+                    const t = card.querySelector('.value__text, .value__name, .treca-title, h3, p:not(.bar__text):not(.point__point)');
                     if (t) title = t.textContent.trim();
                 }
                 let pt = '';
-                const ptEl = card.querySelector('.treca-point, .pt, span.pt');
+                const ptEl = card.querySelector('.treca-point, .pt, span.pt, .point__point');
                 if (ptEl) pt = ptEl.textContent.replace(/\s+/g, '');
                 results.push({title, image, url, pt});
             });
@@ -83,7 +83,7 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         print("🔍 luckytoreca.com スクレイピング開始...")
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-            page.wait_for_selector('div.treca-body', timeout=60000)
+            page.wait_for_selector('div.value__item', timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
             html = page.content()
