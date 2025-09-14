@@ -112,7 +112,9 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
         page = browser.new_page()
         print("🔍 oripalette.jp スクレイピング開始...")
         try:
-            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
+            # The site keeps long-running network connections (e.g. websockets),
+            # so waiting for "networkidle" causes page.goto to time out.
+            page.goto(BASE_URL, timeout=60000)
             page.wait_for_selector("div.banner_base.banner", timeout=60000)
             wait_until_banners(page)
         except Exception as exc:
