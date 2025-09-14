@@ -80,10 +80,16 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
     rows: List[List[str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
+        context = browser.new_context(
+            user_agent=
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+        )
+        page = context.new_page()
         print("🔍 pokepa365.com スクレイピング開始...")
         try:
-            page.goto(INDEX_URL, timeout=60000, wait_until="networkidle")
+            page.goto(INDEX_URL, timeout=60000, wait_until="load")
+            page.wait_for_timeout(8000)
             page.wait_for_selector("div.series-item", timeout=60000)
         except Exception as exc:
             print(f"🛑 ページ読み込み失敗: {exc}")
