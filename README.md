@@ -161,6 +161,21 @@ python dopa_game_banner_scraper.py
 
 The workflow `.github/workflows/scrape_dopa_banner.yml` runs this scraper automatically.
 
+## Koppepanchi Scraper
+
+The `koppepanchi_scraper.py` script collects gacha information from [koppepanchi.com](https://koppepanchi.com/). It uses Playwright to scrape the top page cards and appends the title, image URL, detail page URL and PT value to the `その他` sheet while skipping entries that already exist.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt
+export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+export SPREADSHEET_URL=<YOUR_SHEET_URL>
+python koppepanchi_scraper.py
+```
+
+The workflow `.github/workflows/scrape_koppepanchi.yml` runs this scraper automatically.
+
 
 ## Oripa Dash Banner Scraper
 
