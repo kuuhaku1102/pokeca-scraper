@@ -1,4 +1,4 @@
-name: Deploy to ConoHa WING (rsync, fallback: tar+scp)
+name: Deploy to ConoHa WING (smoke test)
 
 on:
   push:
@@ -6,64 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-    env:
-      SSH_HOST: ${{ secrets.HOST }}
-      SSH_USER: ${{ secrets.USERNAME }}
-      SSH_PORT: ${{ secrets.PORT }}
-      DEST_PATH: /home/c3659606/online-gacha-hack.com
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup SSH key & known_hosts
-        shell: bash
-        run: |
-          mkdir -p ~/.ssh
-          printf "%s\n" "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "${SSH_PORT:-22}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
-
-      - name: Create deploy exclude list
-        shell: bash
-        run: |
-          cat > .deploy_exclude <<'EOF'
-          .git
-          .gitignore
-          .github
-          node_modules
-          wp-content/uploads
-          wp-content/cache
-          .env
-          wp-config.php
-          EOF
-
-      - name: Ensure remote destination exists
-        shell: bash
-        run: |
-          ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" "mkdir -p '${DEST_PATH}' || true"
-
-      - name: Deploy (rsync if available; otherwise tar+scp)
-        shell: bash
-        run: |
-          SSH_OPTS="-p ${SSH_PORT:-22}"
-          if ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "command -v rsync >/dev/null 2>&1"; then
-            rsync -az --delete \
-              --exclude-from='.deploy_exclude' \
-              -e "ssh $SSH_OPTS" \
-              ./ "${SSH_USER}@${SSH_HOST}:${DEST_PATH}/"
-          else
-            tar -czf site.tgz --exclude-from='.deploy_exclude' .
-            scp -P "${SSH_PORT:-22}" site.tgz "${SSH_USER}@${SSH_HOST}:/tmp/site.tgz"
-            ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "mkdir -p '${DEST_PATH}' && tar -xzf /tmp/site.tgz -C '${DEST_PATH}' && rm -f /tmp/site.tgz"
-          fi
-
-      - name: Fix permissions (optional)
-        shell: bash
-        run: |
-          ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" "\
-            find '${DEST_PATH}' -type d -exec chmod 755 {} +; \
-            find '${DEST_PATH}' -type f -exec chmod 644 {} + \
-          "
+      - name: Print hello (YAML sanity check)
+        run: echo "YAML OK"
