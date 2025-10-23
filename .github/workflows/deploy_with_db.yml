@@ -1,4 +1,4 @@
-name: Deploy to ConoHa WING
+name: Deploy & Import WordPress DB (ConoHa)
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
       SSH_HOST: ${{ secrets.HOST }}
       SSH_USER: ${{ secrets.USERNAME }}
       SSH_PORT: ${{ secrets.PORT }}
-      DEST_PATH: /home/c3659606/online-gacha-hack.com
+      DEST_PATH: /home/c3659606/public_html/online-gacha-hack.com
 
     steps:
       - name: Checkout repository
@@ -33,14 +33,20 @@ jobs:
             --exclude ".git*" \
             --exclude ".github" \
             --exclude "node_modules" \
-            --exclude "wp-content/uploads" \
             -e "ssh -p ${SSH_PORT:-22}" \
             ./ "${SSH_USER}@${SSH_HOST}:${DEST_PATH}/"
 
-      - name: Fix permissions (optional)
+      - name: Import WordPress Database (db.sql)
         shell: bash
         run: |
           ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" "\
-            find '${DEST_PATH}' -type d -exec chmod 755 {} +; \
-            find '${DEST_PATH}' -type f -exec chmod 644 {} + \
+            cd '${DEST_PATH}' && \
+            if [ -f wp-content/db.sql ]; then \
+              echo '📦 Importing database...'; \
+              wp db import wp-content/db.sql; \
+              echo '🚿 Flushing cache...'; \
+              wp cache flush; \
+            else \
+              echo '⚠️ No db.sql found at wp-content/db.sql'; \
+            fi \
           "
