@@ -1,4 +1,4 @@
-name: Deploy to ConoHa WING (smoke test)
+name: Deploy to ConoHa WING
 
 on:
   push:
@@ -6,8 +6,41 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.HOST }}
+      SSH_USER: ${{ secrets.USERNAME }}
+      SSH_PORT: ${{ secrets.PORT }}
+      DEST_PATH: /home/c3659606/online-gacha-hack.com
+
     steps:
-      - name: Print hello (YAML sanity check)
-        run: echo "YAML OK"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf "%s\n" "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Deploy files via rsync
+        shell: bash
+        run: |
+          rsync -avz --delete \
+            --exclude ".git*" \
+            --exclude ".github" \
+            --exclude "node_modules" \
+            --exclude "wp-content/uploads" \
+            -e "ssh -p ${SSH_PORT:-22}" \
+            ./ "${SSH_USER}@${SSH_HOST}:${DEST_PATH}/"
+
+      - name: Fix permissions (optional)
+        shell: bash
+        run: |
+          ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" "\
+            find '${DEST_PATH}' -type d -exec chmod 755 {} +; \
+            find '${DEST_PATH}' -type f -exec chmod 644 {} + \
+          "
