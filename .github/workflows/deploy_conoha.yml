@@ -1,0 +1,70 @@
+name: Deploy to ConoHa WING (rsync, fallback: tar+scp)
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.HOST }}
+      SSH_USER: ${{ secrets.USERNAME }}
+      SSH_PORT: ${{ secrets.PORT }}
+      DEST_PATH: /home/c3659606/online-gacha-hack.com
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key & known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # known_hosts にホスト鍵を追加（ポート指定あり）
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
+        shell: bash
+
+      - name: Create deploy exclude list
+        run: |
+          cat > .deploy_exclude <<'EOF'
+          .git
+          .gitignore
+          .github
+          node_modules
+          wp-content/uploads
+          wp-content/cache
+          .env
+          wp-config.php
+          EOF
+
+      - name: Ensure remote destination exists
+        run: |
+          ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" "mkdir -p '${DEST_PATH}' && chown ${SSH_USER}:${SSH_USER} '${DEST_PATH}' || true"
+        shell: bash
+
+      - name: Deploy (rsync if available; otherwise tar+scp fallback)
+        run: |
+          SSH_OPTS="-p ${SSH_PORT:-22}"
+          echo "Checking for rsync on remote..."
+          if ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "command -v rsync >/dev/null 2>&1"; then
+            echo "rsync found on remote — using rsync."
+            rsync -az --delete \
+              --exclude-from='.deploy_exclude' \
+              -e "ssh $SSH_OPTS" \
+              ./ "${SSH_USER}@${SSH_HOST}:${DEST_PATH}/"
+          else
+            echo "rsync not found on remote — fallback to tar+scp."
+            tar -czf site.tgz --exclude-from='.deploy_exclude' .
+            scp -P "${SSH_PORT:-22}" site.tgz "${SSH_USER}@${SSH_HOST}:/tmp/site.tgz"
+            ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" "mkdir -p '${DEST_PATH}' && tar -xzf /tmp/site.tgz -C '${DEST_PATH}' && rm -f /tmp/site.tgz"
+          fi
+        shell: bash
+
+      - name: Fix permissions (optional)
+        run: |
+          ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" "\
+            find '${DEST_PATH}' -type d -exec chmod 755 {} +; \
+            find '${DEST_PATH}' -type f -exec chmod 644 {} + \
+          "
+        shell: bash
