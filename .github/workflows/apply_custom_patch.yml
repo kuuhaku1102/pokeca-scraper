@@ -11,7 +11,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # --3way が動くように完全履歴を取得
+          fetch-depth: 0  # 履歴全取得（git apply --3way に必要）
 
       - name: Apply patch file
         run: |
