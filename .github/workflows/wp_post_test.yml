@@ -1,0 +1,59 @@
+name: Test WordPress REST API Post
+
+on:
+  workflow_dispatch: # 手動実行
+  schedule:
+    - cron: "0 */6 * * *"  # 6時間ごと（任意で変更可）
+
+jobs:
+  test_post:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Post test data to WordPress REST API
+        env:
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
+        run: |
+          python - << 'PYCODE'
+          import os, requests, json
+
+          WP_URL = os.getenv("WP_URL")
+          WP_USER = os.getenv("WP_USER")
+          WP_APP_PASS = os.getenv("WP_APP_PASS")
+
+          # テスト用データ
+          data = [{
+              "source_slug": "oripa-dash",
+              "title": "GitHub Actions テスト投稿",
+              "image_url": "https://example.com/sample.jpg",
+              "detail_url": "https://example.com/detail/test",
+              "price": 1000,
+              "points": 20,
+              "rarity": "PSA10"
+          }]
+
+          print("🔹 Sending POST to:", WP_URL)
+          res = requests.post(WP_URL, json=data, auth=(WP_USER, WP_APP_PASS))
+          print("Status:", res.status_code)
+          print("Response:", res.text)
+          
+          try:
+              res.raise_for_status()
+              result = res.json()
+              print("✅ Success:", json.dumps(result, ensure_ascii=False, indent=2))
+          except Exception as e:
+              print("❌ Error:", e)
+          PYCODE
