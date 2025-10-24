@@ -17,16 +17,15 @@ jobs:
           fetch-depth: 0
 
       - name: Apply patch file
-        run: |
-          git apply --3way patches/update_scrapers.patch
+        run: git apply --3way patches/update_scrapers.patch
 
       - name: Commit and push changes (via PAT)
         env:
-          PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}   # ← secrets名と一致させる
+          PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}   # ← Secrets名はこれ！
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Apply scraping patch automatically" || echo "No changes to commit"
-          # ✅ PATを使ってpush
+          # ✅ PAT で push（GITHUB_TOKENを使わない！）
           git push https://x-access-token:${PAT}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
