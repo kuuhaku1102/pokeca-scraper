@@ -5,7 +5,7 @@ WP_URL = "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
 
 # --- Basic認証用（WPユーザー + アプリケーションパスワード） ---
 WP_USER = "admin"
-WP_APP_PASS = "SRWv WpV0 B9aY VAlf l74v KweQ"
+WP_APP_PASS = "SRWvWpV0B9aYVAlfl74vKweQ"  # ← スペースを全て削除
 
 # --- テスト投稿データ ---
 data = [{
