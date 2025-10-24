@@ -22,11 +22,11 @@ jobs:
 
       - name: Commit and push changes (via PAT)
         env:
-          PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}   # ← ここをGITHUB_TOKENではなくPATに！
+          PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}   # ← secrets名と一致させる
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Apply scraping patch automatically" || echo "No changes to commit"
-          # PATで認証してpush
+          # ✅ PATを使ってpush
           git push https://x-access-token:${PAT}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
