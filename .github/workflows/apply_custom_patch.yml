@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # push用の最低限権限（PATで上書きされる）
+  contents: write   # これだけでOK（PATで上書きされる）
 
 jobs:
   apply-patch:
@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # --3way に必要（浅いcloneだとapply失敗）
+          fetch-depth: 0  # --3way に必要（浅いcloneだと失敗）
 
       - name: Apply patch file
         run: |
@@ -22,13 +22,13 @@ jobs:
 
       - name: Commit and push changes (via PAT)
         env:
-          # 🔹 個人アクセストークンを使用
-          # リポジトリの Settings > Secrets and variables > Actions で
-          # PERSONAL_ACCESS_TOKEN として登録しておく
+          # ✅ PAT（Personal Access Token）を使用
+          # リポジトリ → Settings → Secrets → Actions に
+          # PERSONAL_ACCESS_TOKEN という名前で登録しておくこと！
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Apply scraping patch automatically" || echo "No changes to commit"
-          git push
+          git push https://github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
