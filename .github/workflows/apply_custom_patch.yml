@@ -1,3 +1,28 @@
-- name: Apply patch file
-  run: |
-    git apply --3way patches/update_scrapers.patch
+name: Apply Custom Patch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apply-patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # --3way が動くように完全履歴を取得
+
+      - name: Apply patch file
+        run: |
+          git apply --3way patches/update_scrapers.patch
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Apply scraping patch automatically" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
