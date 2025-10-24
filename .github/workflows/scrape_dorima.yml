@@ -1,9 +1,9 @@
-name: Scrape Dorima
+name: Scrape Dorima8 to WordPress
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: "0 */3 * * *"  # 6時間ごと
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -13,25 +13,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          python -m playwright install --with-deps
+          pip install playwright requests
+          playwright install --with-deps chromium
 
-      - name: Run scraper
+      - name: Scrape and post to WordPress
         env:
-          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-        run: python dorima_scraper.py
-
-      - name: Upload debug HTML
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dorima_debug
-          path: dorima_debug.html
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
+        run: |
+          python scrape_dorima8_to_wp.py
