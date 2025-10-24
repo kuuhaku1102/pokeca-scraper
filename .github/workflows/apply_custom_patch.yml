@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # リポジトリへのpushを許可
-  workflows: write  # .github/workflows以下も更新可能に（必要に応じて）
+  contents: write   # push用の最低限権限（PATで上書きされる）
 
 jobs:
   apply-patch:
@@ -15,15 +14,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # --3way が動くように履歴を全取得
+          fetch-depth: 0  # --3way に必要（浅いcloneだとapply失敗）
 
       - name: Apply patch file
         run: |
           git apply --3way patches/update_scrapers.patch
 
-      - name: Commit and push changes
+      - name: Commit and push changes (via PAT)
         env:
-          # PAT（個人アクセストークン）を使用してworkflowファイルもpush可能に
+          # 🔹 個人アクセストークンを使用
+          # リポジトリの Settings > Secrets and variables > Actions で
+          # PERSONAL_ACCESS_TOKEN として登録しておく
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
