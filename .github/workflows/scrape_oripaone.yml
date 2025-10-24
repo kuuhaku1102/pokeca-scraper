@@ -1,27 +1,30 @@
-name: Scrape Oripaone to Sheets
+name: Scrape OripaOne to WP
 
 on:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごと
+    - cron: "0 */1 * * *"  # 6時間ごと
   workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
-          pip install selenium beautifulsoup4 gspread google-auth google-auth-oauthlib webdriver-manager
+          pip install selenium requests webdriver-manager beautifulsoup4
 
-      - name: Run scraper
+      - name: Scrape and post to WordPress
         env:
-          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-        run: python scrape_oripaone_to_sheets.py
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
+        run: |
+          python scrape_oripaone_to_wp.py
