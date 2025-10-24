@@ -14,13 +14,16 @@ WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/
 WP_USER = os.getenv("WP_USER")
 WP_APP_PASS = os.getenv("WP_APP_PASS")
 
+# --- 重複確認用エンドポイント ---
+WP_GET_URL = "https://online-gacha-hack.com/wp-json/wp/v2/oripa-items?per_page=100"
+
 # -----------------------------
 # スクレイピング対象
 # -----------------------------
 BASE_URL = "https://dopa-game.jp/"
-GACHA_CONTAINER_SELECTOR = "div.css-1flrjkp"  # ガチャ一覧全体
-GACHA_LINK_SELECTOR = "a.css-4g6ai3"          # 各ガチャへのリンク
-IMAGE_SELECTOR = "img.chakra-image"           # サムネイル画像
+GACHA_CONTAINER_SELECTOR = "div.css-1flrjkp"
+GACHA_LINK_SELECTOR = "a.css-4g6ai3"
+IMAGE_SELECTOR = "img.chakra-image"
 
 # -----------------------------
 # PT抽出ロジック
@@ -29,6 +32,36 @@ def extract_pt(text: str) -> str:
     """テキストから '123PT' などの数字を抽出"""
     m = re.search(r"(\d{2,}(?:,\d+)*)", text)
     return m.group(1) if m else ""
+
+# -----------------------------
+# WordPress既存URLの取得
+# -----------------------------
+def fetch_existing_urls() -> set:
+    print("🔍 既存データ取得中（WordPress）...")
+    urls = set()
+    page = 1
+    while True:
+        try:
+            res = requests.get(
+                f"{WP_GET_URL}&page={page}",
+                auth=(WP_USER, WP_APP_PASS),
+                timeout=30
+            )
+            if res.status_code != 200:
+                break
+            data = res.json()
+            if not data:
+                break
+            for item in data:
+                # プラグインで detail_url がメタ情報として保存されている場合
+                if "detail_url" in item:
+                    urls.add(item["detail_url"])
+            page += 1
+        except Exception as e:
+            print(f"⚠️ 既存URL取得中にエラー: {e}")
+            break
+    print(f"✅ 既存URL: {len(urls)} 件")
+    return urls
 
 # -----------------------------
 # スクレイピング本体
@@ -72,7 +105,6 @@ def scrape_dopa() -> List[dict]:
                     if txt:
                         title = txt
 
-                # === PT取得（親または祖先div）===
                 pt_value = ""
                 parent_div = a.evaluate_handle("node => node.parentElement")
                 if parent_div:
@@ -84,7 +116,6 @@ def scrape_dopa() -> List[dict]:
                         gp_text = grandparent_div.inner_text().replace("\n", " ")
                         pt_value = extract_pt(gp_text)
 
-                # --- WordPressに送信する形式に合わせて整形 ---
                 rows.append({
                     "source_slug": "dopa-game",
                     "title": title,
@@ -107,14 +138,15 @@ def scrape_dopa() -> List[dict]:
 # -----------------------------
 # WordPress REST API 投稿
 # -----------------------------
-def post_to_wordpress(items: List[dict]):
-    if not items:
-        print("📭 投稿データなし")
+def post_to_wordpress(items: List[dict], existing_urls: set):
+    new_items = [i for i in items if i["detail_url"] not in existing_urls]
+    if not new_items:
+        print("📭 新規データなし（全件重複）")
         return
 
-    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
+    print(f"🚀 新規 {len(new_items)}件をWordPressに送信中...")
     try:
-        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
+        res = requests.post(WP_URL, json=new_items, auth=(WP_USER, WP_APP_PASS), timeout=60)
         print("Status:", res.status_code)
         try:
             print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
@@ -128,8 +160,9 @@ def post_to_wordpress(items: List[dict]):
 # -----------------------------
 def main():
     start = time.time()
+    existing_urls = fetch_existing_urls()
     items = scrape_dopa()
-    post_to_wordpress(items)
+    post_to_wordpress(items, existing_urls)
     print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
 
 if __name__ == "__main__":
