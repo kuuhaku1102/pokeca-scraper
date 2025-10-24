@@ -19,6 +19,9 @@ WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/
 WP_USER = os.getenv("WP_USER")
 WP_APP_PASS = os.getenv("WP_APP_PASS")
 
+# WordPress側で既存URLを取得するエンドポイント（プラグイン側で追加）
+WP_GET_URL = "https://online-gacha-hack.com/wp-json/oripa/v1/list"
+
 # -----------------------------
 # Selenium設定
 # -----------------------------
@@ -33,6 +36,23 @@ options.add_argument(
 )
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+# -----------------------------
+# WordPress 既存URL取得
+# -----------------------------
+def fetch_existing_urls() -> set:
+    print("🔍 WordPress既存URLを取得中...")
+    try:
+        res = requests.get(WP_GET_URL, auth=(WP_USER, WP_APP_PASS), timeout=30)
+        if res.status_code != 200:
+            print(f"⚠️ URL取得失敗: {res.status_code}")
+            return set()
+        urls = set(res.json())
+        print(f"✅ 既存URL数: {len(urls)} 件")
+        return urls
+    except Exception as e:
+        print(f"🛑 既存URL取得エラー: {e}")
+        return set()
 
 # -----------------------------
 # スクレイピング処理
@@ -89,16 +109,21 @@ def scrape_oripaone():
     return results
 
 # -----------------------------
-# WordPress REST API投稿
+# WordPress REST API投稿（重複除外）
 # -----------------------------
-def post_to_wordpress(items):
+def post_to_wordpress(items, existing_urls):
     if not items:
         print("📭 投稿データなし")
         return
 
-    print(f"🚀 {len(items)}件をWordPressに送信中...")
+    new_items = [item for item in items if item["detail_url"] not in existing_urls]
+    if not new_items:
+        print("📭 新規データなし（全件重複）")
+        return
+
+    print(f"🚀 新規 {len(new_items)}件をWordPressに送信中...")
     try:
-        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
+        res = requests.post(WP_URL, json=new_items, auth=(WP_USER, WP_APP_PASS), timeout=60)
         print("Status:", res.status_code)
         try:
             print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
@@ -112,8 +137,9 @@ def post_to_wordpress(items):
 # -----------------------------
 def main():
     start = time.time()
+    existing_urls = fetch_existing_urls()
     items = scrape_oripaone()
-    post_to_wordpress(items)
+    post_to_wordpress(items, existing_urls)
     print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
 
 if __name__ == "__main__":
