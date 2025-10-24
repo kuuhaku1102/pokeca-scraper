@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # ← これを追加！
+  contents: write   # リポジトリへのpushを許可
+  workflows: write  # .github/workflows以下も更新可能に（必要に応じて）
 
 jobs:
   apply-patch:
@@ -14,18 +15,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # --3way が動くように履歴を全取得
 
       - name: Apply patch file
         run: |
           git apply --3way patches/update_scrapers.patch
 
       - name: Commit and push changes
+        env:
+          # PAT（個人アクセストークン）を使用してworkflowファイルもpush可能に
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Apply scraping patch automatically" || echo "No changes to commit"
           git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
