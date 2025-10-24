@@ -1,0 +1,39 @@
+name: Apply Custom Patch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apply-patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # これが超重要。浅いcloneだと git apply が失敗します。
+
+      - name: Apply inline patch
+        run: |
+          (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF'
+          diff --git a/.github/workflows/scrape_alpha_oripa.yml b/.github/workflows/scrape_alpha_oripa.yml
+          index a665dbc0cd58e1e72f43f4af451dc3fb962be3b1..e5bcdd652d1e15b9d700d150147effe63b8544ed 100644
+          --- a/.github/workflows/scrape_alpha_oripa.yml
+          +++ b/.github/workflows/scrape_alpha_oripa.yml
+          @@ -1,40 +1,38 @@
+          name: Scrape Alpha Oripa
+          ...
+          （あなたのdiff全文ここにコピペ）
+          ...
+          EOF
+          )
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Apply scraping patch automatically"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
