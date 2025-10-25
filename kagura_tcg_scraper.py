@@ -1,62 +1,59 @@
 import os
-import base64
 import re
+import time
+import json
 from urllib.parse import urljoin, urlparse
-
-import gspread
-from google.oauth2.service_account import Credentials
 from playwright.sync_api import sync_playwright
+import requests
 
+# -----------------------------
+# WordPress REST API 設定
+# -----------------------------
+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
+WP_USER = os.getenv("WP_USER")
+WP_APP_PASS = os.getenv("WP_APP_PASS")
+WP_GET_URL = "https://online-gacha-hack.com/wp-json/oripa/v1/list"
+
+# -----------------------------
+# スクレイピング対象
+# -----------------------------
 BASE_URL = "https://kagura-tcg.com/"
-SHEET_NAME = "その他"
-SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
 
+# -----------------------------
+# WordPress既存URL取得
+# -----------------------------
+def fetch_existing_urls() -> set:
+    print("🔍 WordPress既存URLを取得中...")
+    try:
+        res = requests.get(WP_GET_URL, auth=(WP_USER, WP_APP_PASS), timeout=30)
+        if res.status_code != 200:
+            print(f"⚠️ URL取得失敗: {res.status_code}")
+            return set()
+        urls = set(res.json())
+        print(f"✅ 既存URL数: {len(urls)} 件")
+        return urls
+    except Exception as e:
+        print(f"🛑 既存URL取得エラー: {e}")
+        return set()
 
-def save_credentials() -> str:
-    encoded = os.environ.get("GSHEET_JSON", "")
-    if not encoded:
-        raise RuntimeError("GSHEET_JSON environment variable is missing")
-    with open("credentials.json", "w") as f:
-        f.write(base64.b64decode(encoded).decode("utf-8"))
-    return "credentials.json"
-
-
-def get_sheet():
-    creds_path = save_credentials()
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
-    client = gspread.authorize(creds)
-    if not SPREADSHEET_URL:
-        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
-    spreadsheet = client.open_by_url(SPREADSHEET_URL)
-    return spreadsheet.worksheet(SHEET_NAME)
-
-
+# -----------------------------
+# URL正規化
+# -----------------------------
 def strip_query(url: str) -> str:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
-
-def fetch_existing_urls(sheet) -> set:
-    records = sheet.get_all_values()
-    urls = set()
-    for row in records[1:]:
-        if len(row) >= 2:
-            u = row[1].strip()
-            if u:
-                urls.add(strip_query(u))
-    return urls
-
-
-def scrape_items(existing_urls: set) -> list:
+# -----------------------------
+# スクレイピング処理
+# -----------------------------
+def scrape_items() -> list[dict]:
     rows = []
+    print("🔍 kagura-tcg.com スクレイピング開始...")
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
-        print("🔍 kagura-tcg.com スクレイピング開始...")
+
         try:
             page.goto(BASE_URL, timeout=60000, wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
@@ -73,24 +70,26 @@ def scrape_items(existing_urls: set) -> list:
             browser.close()
             return rows
 
-        print(f"📦 取得件数: {len(cards)}")
+        print(f"📦 検出件数: {len(cards)}")
 
         for i in range(len(cards)):
             try:
                 cards = page.query_selector_all("div.flex.flex-col.cursor-pointer")
                 card = cards[i]
 
-                # background-image から画像URL取得
+                # 画像URL取得
+                image_url = ""
                 try:
                     img_div = card.query_selector("div[style*='background-image']")
-                    style = img_div.get_attribute("style")
-                    match = re.search(r'url\(["\']?(.*?)["\']?\)', style)
+                    style = img_div.get_attribute("style") if img_div else ""
+                    match = re.search(r'url\(["\']?(.*?)["\']?\)', style or "")
                     image_url = match.group(1) if match else ""
                     if image_url.startswith("/"):
                         image_url = urljoin(BASE_URL, image_url)
                 except:
-                    image_url = ""
+                    pass
 
+                # 詳細ページ遷移
                 with page.expect_navigation(wait_until="load", timeout=30000):
                     card.click()
 
@@ -99,30 +98,33 @@ def scrape_items(existing_urls: set) -> list:
                 if not norm_url:
                     print("⚠️ URLが空のためスキップ")
                     page.go_back()
-                    page.wait_for_timeout(1000)
-                    page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=10000)
-                    continue
-                if norm_url in existing_urls:
-                    print(f"⏭ スキップ（重複）: {norm_url}")
-                    page.go_back()
-                    page.wait_for_timeout(1000)
-                    page.wait_for_selector("div.flex.flex-col.cursor-pointer", timeout=10000)
                     continue
 
+                # タイトル・価格取得
+                title = "noname"
                 try:
                     title = page.query_selector("h1").inner_text().strip()
                 except:
-                    title = "noname"
+                    pass
 
+                pt_value = ""
                 try:
                     pt_el = page.query_selector(".fa-coins")
-                    pt_text = pt_el.evaluate("el => el.parentElement.textContent")
+                    pt_text = pt_el.evaluate("el => el.parentElement.textContent") if pt_el else ""
                     pt_value = re.sub(r"[^0-9]", "", pt_text)
                 except:
-                    pt_value = ""
+                    pass
 
-                rows.append([title, image_url, detail_url, pt_value])
-                existing_urls.add(norm_url)
+                rows.append({
+                    "source_slug": "kagura-tcg",
+                    "title": title,
+                    "image_url": image_url,
+                    "detail_url": detail_url,
+                    "points": pt_value,
+                    "price": None,
+                    "rarity": None,
+                    "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+                })
 
                 page.go_back()
                 page.wait_for_timeout(1000)
@@ -138,22 +140,49 @@ def scrape_items(existing_urls: set) -> list:
                     pass
 
         browser.close()
+    print(f"✅ {len(rows)} 件のデータを取得完了")
     return rows
 
+# -----------------------------
+# WordPress REST API投稿（重複除外）
+# -----------------------------
+def post_to_wordpress(items, existing_urls):
+    if not items:
+        print("📭 投稿データなし")
+        return
 
-def main() -> None:
-    sheet = get_sheet()
-    existing_urls = fetch_existing_urls(sheet)
-    rows = scrape_items(existing_urls)
-    if rows:
+    new_items = []
+    for item in items:
+        norm_url = strip_query(item["detail_url"])
+        if norm_url in existing_urls:
+            print(f"⏭ スキップ（重複）: {item['title']}")
+            continue
+        new_items.append(item)
+
+    if not new_items:
+        print("📭 新規データなし（全件既存）")
+        return
+
+    print(f"🚀 新規 {len(new_items)}件をWordPressに送信中...")
+    try:
+        res = requests.post(WP_URL, json=new_items, auth=(WP_USER, WP_APP_PASS), timeout=60)
+        print("Status:", res.status_code)
         try:
-            sheet.append_rows(rows, value_input_option="USER_ENTERED")
-            print(f"📥 {len(rows)} 件追記完了")
-        except Exception as exc:
-            print(f"❌ スプレッドシート書き込み失敗: {exc}")
-    else:
-        print("📭 新規データなし")
+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
+        except Exception:
+            print("Response:", res.text)
+    except Exception as e:
+        print(f"🛑 WordPress送信中にエラー: {e}")
 
+# -----------------------------
+# メイン処理
+# -----------------------------
+def main():
+    start = time.time()
+    existing_urls = fetch_existing_urls()
+    items = scrape_items()
+    post_to_wordpress(items, existing_urls)
+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
 
 if __name__ == "__main__":
     main()
