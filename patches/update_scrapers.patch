@@ -1,2729 +1,349 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/.github/workflows/scrape_alpha_oripa.yml b/.github/workflows/scrape_alpha_oripa.yml
-index a665dbc0cd58e1e72f43f4af451dc3fb962be3b1..e5bcdd652d1e15b9d700d150147effe63b8544ed 100644
---- a/.github/workflows/scrape_alpha_oripa.yml
-+++ b/.github/workflows/scrape_alpha_oripa.yml
-@@ -1,40 +1,38 @@
- name: Scrape Alpha Oripa
+diff --git a/README.md b/README.md
+index 5b502169f077035999b21b3d05d90b3c5c2a245e..d1397710ab4d5451c1d329bf29cc684c70049ce5 100644
+--- a/README.md
++++ b/README.md
+@@ -51,50 +51,79 @@ Run locally:
  
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
+ ```bash
+ pip install -r requirements.txt
+ export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+ python dokkan_scraper.py
+ ```
  
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
--        uses: actions/checkout@v3
-+        uses: actions/checkout@v4
+ The workflow `.github/workflows/scrape_dokkan.yml` runs this scraper weekly.
  
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.11'
  
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--
--      - name: Install Playwright browsers
--        run: |
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
+ ## Dokkan Banner Scraper
  
-       - name: Run scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python alpha_oripa_scraper.py
+ The `dokkan_banner_scraper.py` script retrieves banner image URLs from [dokkan-toreca.com](https://dokkan-toreca.com/). It uses Playwright to collect the image URL from the top page slider and appends it to the `news` sheet, skipping entries with a duplicate image URL.
  
-       - name: Upload debug HTML
-         if: failure()
-         uses: actions/upload-artifact@v4
-         with:
-           name: alpha_oripa_debug
-           path: alpha_oripa_debug.html
-diff --git a/.github/workflows/scrape_cardel.yml b/.github/workflows/scrape_cardel.yml
-index de49b8531af492ca164cdce7ec6d1e6a7eeb34c3..80c63effb08b0436a336df55ffb9e9def5a46e6c 100644
---- a/.github/workflows/scrape_cardel.yml
-+++ b/.github/workflows/scrape_cardel.yml
-@@ -1,37 +1,38 @@
- name: Scrape Cardel
+ Run locally:
  
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
+ ```bash
+ pip install -r requirements.txt
+ export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+ export SPREADSHEET_URL=<YOUR_SHEET_URL>
+ python dokkan_banner_scraper.py
+ ```
  
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
-         uses: actions/checkout@v4
+ The workflow `.github/workflows/scrape_dokkan_banner.yml` runs this scraper automatically.
  
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
++## Ranking Page Manager
++
++The `ranking_page_manager.py` script pushes ranking data to a WordPress page so that the content can be edited afterwards from the WordPress 管理画面. Ranking items are defined in `ranking_data.json` and include:
++
++* `rank` – display order
++* `title`
++* `image_url` – image source shown on the page
++* `image_link` – URL opened when the image is clicked
++* `description`
++* `detail_url` – target for the 詳細 button
++* `official_url` – target for the 公式 button
++
++The script renders these items into Gutenberg blocks and upserts a page via the REST API. Configure the following environment variables before running the script:
++
++```bash
++export WP_API_BASE="https://example.com/wp-json/wp/v2"
++export WP_USER="your_user"
++export WP_APP_PASS="your_application_password"
++python ranking_page_manager.py
++```
++
++Optional environment variables:
++
++* `WP_RANKING_JSON` – path to a custom JSON file. Defaults to `ranking_data.json`.
++* `WP_RANKING_SLUG` – page slug (`ranking` by default).
++* `WP_RANKING_TITLE` – page title when creating a new page (`ランキング` by default).
++
++Once the page is created, you can fine-tune text, buttons, and images directly from the WordPress editor without running the script again.
++
+ ## Spark Oripa Scraper
  
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
+ The `sparkoripa_scraper.py` script collects gacha data from [sparkoripa.jp](https://sparkoripa.jp/). It uses `requests` and `BeautifulSoup` to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet.
  
-       - name: Run scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python cardel_scraper.py
+ Run locally:
  
-       - name: Upload debug HTML
-         if: failure()
-         uses: actions/upload-artifact@v4
-         with:
-           name: cardel_debug
-           path: cardel_debug.html
-diff --git a/.github/workflows/scrape_ciel.yml b/.github/workflows/scrape_ciel.yml
-index d470085323e58096aaebfb16295b7fd2e1558e6d..10caeec2ce432e2662f42deb15f7dea575d6ab75 100644
---- a/.github/workflows/scrape_ciel.yml
-+++ b/.github/workflows/scrape_ciel.yml
-@@ -1,36 +1,39 @@
- name: Scrape Ciel with Playwright
+ ```bash
+ pip install -r requirements.txt
+ export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+ python sparkoripa_scraper.py
+ ```
  
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
+ The workflow `.github/workflows/scrape_sparkoripa.yml` runs this scraper on a schedule.
  
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
+ ## Eve Gacha Scraper
  
-     steps:
-       - name: Checkout code
--        uses: actions/checkout@v3
-+        uses: actions/checkout@v4
+ The `eve_gacha_scraper.py` script gathers gacha information from [eve-gacha.com](https://eve-gacha.com/). It uses `requests` and `BeautifulSoup` to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet.
  
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
+ Run locally:
  
-       - name: Install Python dependencies
-         run: |
--          pip install -r requirements.txt
--          python -m playwright install
-+          python -m pip install --upgrade pip
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run Ciel scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python ciel_scraper.py
- 
-       - name: Upload page debug HTML
-         if: failure()
-         uses: actions/upload-artifact@v4
-         with:
-           name: ciel_page_debug
-           path: ciel_page_debug.html
-diff --git a/.github/workflows/scrape_clove_oripa.yml b/.github/workflows/scrape_clove_oripa.yml
-index dae9ad5ba5fb6dc01d0a8530294b5c15649a5d28..289186b675902a3865df35039fa6b15df771623d 100644
---- a/.github/workflows/scrape_clove_oripa.yml
-+++ b/.github/workflows/scrape_clove_oripa.yml
-@@ -1,36 +1,38 @@
- name: Scrape Clove Oripa
- 
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
- 
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout code
--        uses: actions/checkout@v3
-+        uses: actions/checkout@v4
- 
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
- 
-       - name: Install Python dependencies
-         run: |
--          pip install -r requirements.txt
--          python -m playwright install
-+          python -m pip install --upgrade pip
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run Clove Oripa scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python clove_oripa_scraper.py
- 
-       - name: Upload page debug HTML
-         if: failure()
-         uses: actions/upload-artifact@v4
-         with:
-           name: clove_oripa_page_debug
-           path: clove_oripa_page_debug.html
-diff --git a/.github/workflows/scrape_clove_oripa_pokemon_banner.yml b/.github/workflows/scrape_clove_oripa_pokemon_banner.yml
-index 4b8e79f294ece639504f09a4b464be03ab666b9c..9f0d785fabde3e5d1d9de9f27392fa097ed57a64 100644
---- a/.github/workflows/scrape_clove_oripa_pokemon_banner.yml
-+++ b/.github/workflows/scrape_clove_oripa_pokemon_banner.yml
-@@ -1,30 +1,31 @@
- name: Scrape Clove Oripa Pokemon Banner
- 
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */6 * * *'
- 
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
--        uses: actions/checkout@v3
-+        uses: actions/checkout@v4
- 
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
- 
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run banner scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python clove_oripa_pokemon_banner_scraper.py
-diff --git a/.github/workflows/scrape_dopa_banner.yml b/.github/workflows/scrape_dopa_banner.yml
-index 3f454f68204e910c4b8dfe70ef06aaacd1c1736a..c66b7a2e35f0eb2a7c947a0c79eb2a816e165470 100644
---- a/.github/workflows/scrape_dopa_banner.yml
-+++ b/.github/workflows/scrape_dopa_banner.yml
-@@ -1,30 +1,31 @@
- name: Scrape Dopa Banner
- 
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */6 * * *'
- 
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
--        uses: actions/checkout@v3
-+        uses: actions/checkout@v4
- 
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
- 
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run banner scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python dopa_game_banner_scraper.py
-diff --git a/.github/workflows/scrape_dorima.yml b/.github/workflows/scrape_dorima.yml
-index 03104a75338eebbd264e8d37e4c39fb4c6b7d2b6..f6fb0ae8167f2efd3cad72d706b220f39fe923c5 100644
---- a/.github/workflows/scrape_dorima.yml
-+++ b/.github/workflows/scrape_dorima.yml
-@@ -1,37 +1,38 @@
- name: Scrape Dorima
- 
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
- 
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
-         uses: actions/checkout@v4
- 
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
- 
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python dorima_scraper.py
- 
-       - name: Upload debug HTML
-         if: failure()
-         uses: actions/upload-artifact@v4
-         with:
-           name: dorima_debug
-           path: dorima_debug.html
-diff --git a/.github/workflows/scrape_dream_oripa.yml b/.github/workflows/scrape_dream_oripa.yml
-index e1ce327c8264f9a755eb0101d8b8b5874d2d2856..504119770c49f15e108cd3f3713b7b429f4a4f6e 100644
---- a/.github/workflows/scrape_dream_oripa.yml
-+++ b/.github/workflows/scrape_dream_oripa.yml
-@@ -1,37 +1,38 @@
- name: Scrape Dream Oripa
- 
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
- 
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
--        uses: actions/checkout@v3
-+        uses: actions/checkout@v4
- 
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
- 
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python dream_oripa_scraper.py
- 
-       - name: Upload debug HTML
-         if: failure()
-         uses: actions/upload-artifact@v4
-         with:
-           name: dream_oripa_debug
-           path: dream_oripa_debug.html
-diff --git a/.github/workflows/scrape_evegacha.yml b/.github/workflows/scrape_evegacha.yml
-index e97ba1bec7ded9393eec71bdf345543dca9e74f9..17bd91d5ca66490fbb3c12adcefa9fda265415c5 100644
---- a/.github/workflows/scrape_evegacha.yml
-+++ b/.github/workflows/scrape_evegacha.yml
-@@ -1,32 +1,31 @@
- name: Scrape Eve Gacha
- 
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
- 
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
--        uses: actions/checkout@v3
-+        uses: actions/checkout@v4
- 
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.10'
- 
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--
--      - name: Install Playwright browsers
--        run: |
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python eve_gacha_scraper.py
-diff --git a/.github/workflows/scrape_gachaking_oripa.yml b/.github/workflows/scrape_gachaking_oripa.yml
-index 7a6458b1cd57177fe34be411fcc8bc709f1470b2..8da697b0a45bffe036715b01b168a3a8c0dbb034 100644
---- a/.github/workflows/scrape_gachaking_oripa.yml
-+++ b/.github/workflows/scrape_gachaking_oripa.yml
-@@ -1,37 +1,38 @@
- name: Scrape Gachaking Oripa
- 
- on:
-   workflow_dispatch:
-   schedule:
-     - cron: '0 */3 * * *'
- 
- jobs:
-   scrape:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout repository
-         uses: actions/checkout@v4
- 
-       - name: Set up Python
--        uses: actions/setup-python@v4
-+        uses: actions/setup-python@v5
-         with:
-           python-version: '3.11'
- 
-       - name: Install dependencies
-         run: |
-           python -m pip install --upgrade pip
--          pip install -r requirements.txt
--          python -m playwright install --with-deps
-+          pip install playwright requests
-+          python -m playwright install --with-deps chromium
- 
-       - name: Run scraper
-         env:
--          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
--          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-+          WP_URL: ${{ secrets.WP_URL }}
-+          WP_USER: ${{ secrets.WP_USER }}
-+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
-         run: python gachaking_oripa_scraper.py
- 
-       - name: Upload debug HTML
-         if: failure()
-         uses: actions/upload-artifact@v4
-         with:
-           name: gachaking_oripa_debug
-           path: gachaking_oripa_debug.html
-diff --git a/alpha_oripa_scraper.py b/alpha_oripa_scraper.py
-index 869de5d09a710727c49cf9041563882e4324c63d..efd85e452263c787bbd4fff3f362a2c4d102a83c 100644
---- a/alpha_oripa_scraper.py
-+++ b/alpha_oripa_scraper.py
-@@ -1,127 +1,131 @@
+ ```bash
+ pip install -r requirements.txt
+ export GSHEET_JSON=<BASE64_SERVICE_ACCOUNT_JSON>
+ python eve_gacha_scraper.py
+ ```
+diff --git a/ranking_data.json b/ranking_data.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..300ae31762164b0177bfade83ffaf000b98d6571
+--- /dev/null
++++ b/ranking_data.json
+@@ -0,0 +1,29 @@
++[
++  {
++    "rank": 1,
++    "title": "サンプルガチャA",
++    "image_url": "https://example.com/images/rank1.jpg",
++    "image_link": "https://example.com/gacha/rank1",
++    "description": "ここにランキング対象の説明文を記載します。複数行も\\n利用できます。",
++    "detail_url": "https://example.com/detail/rank1",
++    "official_url": "https://example.com/official/rank1"
++  },
++  {
++    "rank": 2,
++    "title": "サンプルガチャB",
++    "image_url": "https://example.com/images/rank2.jpg",
++    "image_link": "https://example.com/gacha/rank2",
++    "description": "サンプルの2位アイテムです。説明文を差し替えて下さい。",
++    "detail_url": "https://example.com/detail/rank2",
++    "official_url": "https://example.com/official/rank2"
++  },
++  {
++    "rank": 3,
++    "title": "サンプルガチャC",
++    "image_url": "https://example.com/images/rank3.jpg",
++    "image_link": "https://example.com/gacha/rank3",
++    "description": "3位の説明文です。管理画面から自由に編集できます。",
++    "detail_url": "https://example.com/detail/rank3",
++    "official_url": "https://example.com/official/rank3"
++  }
++]
+diff --git a/ranking_page_manager.py b/ranking_page_manager.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..2592c3f3a78343e101e07ae0d7911028ffc60ae1
+--- /dev/null
++++ b/ranking_page_manager.py
+@@ -0,0 +1,224 @@
++"""Utility for managing the WordPress ranking page.
++
++This helper reads ranking entries from a local JSON file and pushes them to a
++WordPress page via the REST API. The generated page content is composed of
++Gutenberg blocks so that the ranking can be edited afterwards directly from the
++WordPress管理画面 (dashboard) without touching the code.
++
++Environment variables
++---------------------
++WP_RANKING_JSON
++    Optional path to a JSON file. Defaults to ``ranking_data.json`` in the
++    repository root.
++WP_RANKING_SLUG
++    The slug of the page to upsert. Defaults to ``ranking``.
++WP_RANKING_TITLE
++    Title of the page when a new one is created. Defaults to ``ランキング``.
++WP_API_BASE
++    Base REST API endpoint. Example: ``https://example.com/wp-json/wp/v2``.
++WP_USER / WP_APP_PASS
++    Credentials for the REST API.
++"""
++
++from __future__ import annotations
++
++import html
 +import json
- import os
--import base64
- import re
-+import time
- from typing import List
- from urllib.parse import urljoin
- 
--import gspread
--from google.oauth2.service_account import Credentials
++import os
++from dataclasses import dataclass
++from pathlib import Path
++from typing import List, Optional
++
 +import requests
- from playwright.sync_api import sync_playwright
- 
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
-+
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
- BASE_URL = "https://alpha-oripa.com/"
--SHEET_NAME = "その他"
--SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
--
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
--
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    if not SPREADSHEET_URL:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(SPREADSHEET_URL)
--    return spreadsheet.worksheet(SHEET_NAME)
--
--
--def fetch_existing_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    urls = set()
--    for row in records[1:]:
--        if len(row) >= 3:
--            url = row[2].strip()
--            if url:
--                urls.add(url)
--    return urls
--
--
--def scrape_items(existing_urls: set) -> List[List[str]]:
--    rows: List[List[str]] = []
-+SOURCE_SLUG = "alpha-oripa"
 +
 +
-+def scrape_alpha_oripa() -> List[dict]:
-+    print("🔍 alpha-oripa.com スクレイピング開始...")
-+    items: List[dict] = []
-+    seen_urls = set()
-+
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page()
--        print("🔍 alpha-oripa.com スクレイピング開始...")
-+
-         try:
-             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-             page.wait_for_selector("div.gachaItem img", timeout=60000)
-         except Exception as exc:
-             print(f"🛑 ページ読み込み失敗: {exc}")
--            html = page.content()
-+            try:
-+                html = page.content()
-+                with open("alpha_oripa_debug.html", "w", encoding="utf-8") as f:
-+                    f.write(html)
-+            except Exception:
-+                pass
-             browser.close()
--            with open("alpha_oripa_debug.html", "w", encoding="utf-8") as f:
--                f.write(html)
--            return rows
-+            return items
- 
--        items = page.evaluate(
-+        scraped = page.evaluate(
-             """
-             () => {
-                 const results = [];
-                 document.querySelectorAll('div.gachaItem').forEach(box => {
-                     const a = box.querySelector('a[href]');
-                     const img = box.querySelector('img');
-                     if (!a || !img) return;
-                     const title = img.getAttribute('alt') || img.getAttribute('title') || '';
-                     const image = img.getAttribute('src') || '';
-                     const url = a.getAttribute('href') || '';
-                     const ptEl = box.querySelector('span.font-semibold');
-                     let pt = '';
-                     if (ptEl) {
--                        const m = ptEl.textContent.replace(/,/g, '').match(/(\d+)/);
-+                        const text = ptEl.textContent || '';
-+                        const m = text.replace(/,/g, '').match(/(\d+)/);
-                         if (m) pt = m[1];
-                     }
-                     results.push({ title, image, url, pt });
-                 });
-                 return results;
-             }
-             """
-         )
-+
-         browser.close()
- 
--    for item in items:
--        detail_url = item.get("url", "").strip()
--        image_url = item.get("image", "").strip()
--        title = item.get("title", "noname").strip() or "noname"
--        pt_text = item.get("pt", "").strip()
-+    for item in scraped or []:
-+        detail_url = (item.get("url") or "").strip()
-+        image_url = (item.get("image") or "").strip()
-+        title = (item.get("title") or "noname").strip() or "noname"
-+        pt_text = (item.get("pt") or "").strip()
- 
-         if detail_url.startswith("/"):
-             detail_url = urljoin(BASE_URL, detail_url)
-         if image_url.startswith("/"):
-             image_url = urljoin(BASE_URL, image_url)
- 
--        if detail_url in existing_urls:
-+        if not detail_url or detail_url in seen_urls:
-             continue
- 
--        rows.append([title, image_url, detail_url, pt_text])
--        existing_urls.add(detail_url)
-+        points = re.sub(r"[^0-9]", "", pt_text)
-+        seen_urls.add(detail_url)
-+        items.append({
-+            "source_slug": SOURCE_SLUG,
-+            "title": title,
-+            "image_url": image_url,
-+            "detail_url": detail_url,
-+            "points": points,
-+            "price": None,
-+            "rarity": None,
-+            "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")},
-+        })
-+
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
++DEFAULT_JSON_PATH = Path("ranking_data.json")
++DEFAULT_SLUG = "ranking"
++DEFAULT_TITLE = "ランキング"
 +
 +
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-+        return
- 
--    return rows
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-+    try:
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
++@dataclass
++class RankingEntry:
++    """Single row in the ranking list."""
++
++    rank: int
++    title: str
++    image_url: str
++    image_link: str
++    description: str
++    detail_url: str
++    official_url: str
++
++    @classmethod
++    def from_dict(cls, data: dict) -> "RankingEntry":
 +        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
- 
- 
- def main() -> None:
--    sheet = get_sheet()
--    existing_urls = fetch_existing_urls(sheet)
--    rows = scrape_items(existing_urls)
--    if not rows:
--        print("📭 新規データなし")
--        return
--    try:
--        sheet.append_rows(rows, value_input_option="USER_ENTERED")
--        print(f"📥 {len(rows)} 件追記完了")
--    except Exception as exc:
--        print(f"❌ スプレッドシート書き込み失敗: {exc}")
-+    start = time.time()
-+    items = scrape_alpha_oripa()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
- 
- 
- if __name__ == "__main__":
-     main()
-diff --git a/cardel_scraper.py b/cardel_scraper.py
-index 2629638808b276d60ffe87de5a148324d6b9664c..ca334c66ff89abfd699d706e21933eb697c9f47f 100644
---- a/cardel_scraper.py
-+++ b/cardel_scraper.py
-@@ -1,154 +1,157 @@
-+import json
- import os
--import base64
- import re
-+import time
- from typing import List
--from urllib.parse import urlparse
-+from urllib.parse import urljoin, urlparse
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
--BASE_URL = "https://cardel.online/"
--SHEET_NAME = "その他"
--
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
- 
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    spreadsheet_url = os.environ.get("SPREADSHEET_URL")
--    if not spreadsheet_url:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(spreadsheet_url)
--    return spreadsheet.worksheet(SHEET_NAME)
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
-+BASE_URL = "https://cardel.online/"
-+SOURCE_SLUG = "cardel"
- 
- 
- def normalize_url(url: str) -> str:
-     parsed = urlparse(url)
--    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
--
-+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}".rstrip("/")
- 
--def fetch_existing_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    urls = set()
--    for row in records[1:]:
--        if len(row) >= 3:
--            url = row[2].strip()
--            if url:
--                urls.add(normalize_url(url))
--    return urls
- 
-+def scrape_cardel() -> List[dict]:
-+    print("🔍 cardel.online スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
- 
--def scrape_items(existing_urls: set) -> List[List[str]]:
--    rows: List[List[str]] = []
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page()
--        print("🔍 cardel.online スクレイピング開始...")
- 
-         try:
-             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-             page.wait_for_selector("div[id$='-Wrap']", timeout=10000)
- 
--            # スクロールで要素をロード
--            page.evaluate("""
-+            page.evaluate(
-+                """
-                 async () => {
-                     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-                     for (let i = 0; i < 30; i++) {
-                         window.scrollBy(0, window.innerHeight);
-                         await delay(300);
-                     }
-                 }
--            """)
-+                """
-+            )
-             page.wait_for_timeout(1000)
- 
-             index = 0
-             while True:
-                 elements = page.query_selector_all("div[id$='-Wrap']")
-                 if index >= len(elements):
-                     break
- 
-+                el = elements[index]
-                 try:
--                    el = elements[index]
-                     title = el.get_attribute("title") or f"noname-{index}"
- 
--                    # 画像
-                     image = ""
-                     fig = el.query_selector("figure")
-                     if fig:
-                         img = fig.query_selector("img")
-                         if img:
--                            image = img.get_attribute("src")
-+                            image = (img.get_attribute("src") or "").strip()
- 
--                    # pt
-                     pt_text = ""
-                     pt_el = el.query_selector("div.flex.justify-end p.text-sm")
-                     if pt_el:
-                         pt_text = pt_el.inner_text().strip()
-                     else:
--                        m = re.search(r"([0-9,]+)\s*pt", el.inner_text())
-+                        m = re.search(r"([0-9,]+)\s*pt", el.inner_text() or "")
-                         if m:
-                             pt_text = m.group(1)
- 
--                    # 遷移してURL取得
-                     el.scroll_into_view_if_needed()
-                     el.click(timeout=10000)
-                     page.wait_for_timeout(2000)
-                     detail_url = page.url
-                     norm_url = normalize_url(detail_url)
- 
--                    if norm_url in existing_urls:
--                        print(f"⏭ スキップ（重複）: {title}")
-+                    if not detail_url or norm_url in seen:
-                         page.go_back(wait_until="networkidle")
-                         page.wait_for_timeout(1000)
-                         index += 1
-                         continue
- 
--                    rows.append([title, image, detail_url, re.sub(r"[^0-9]", "", pt_text)])
--                    existing_urls.add(norm_url)
--                    print(f"✅ 取得: {title} - {detail_url}")
-+                    seen.add(norm_url)
-+                    image_url = image
-+                    if image_url.startswith("/"):
-+                        image_url = urljoin(BASE_URL, image_url)
++            rank = int(data.get("rank"))
++        except (TypeError, ValueError):
++            raise ValueError(f"Invalid rank value: {data.get('rank')!r}") from None
 +
-+                    items.append({
-+                        "source_slug": SOURCE_SLUG,
-+                        "title": title.strip() or "noname",
-+                        "image_url": image_url,
-+                        "detail_url": detail_url,
-+                        "points": re.sub(r"[^0-9]", "", pt_text),
-+                        "price": None,
-+                        "rarity": None,
-+                        "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")},
-+                    })
- 
--                    # 戻る
-                     page.go_back(wait_until="networkidle")
-                     page.wait_for_timeout(1000)
-                     index += 1
- 
--                except Exception as e:
--                    print(f"⚠️ エラー（スキップ）: index {index} - {e}")
--                    page.go_back(wait_until="networkidle")
--                    page.wait_for_timeout(1000)
-+                except Exception as exc:
-+                    print(f"⚠️ エラー（スキップ）: index {index} - {exc}")
-+                    try:
-+                        page.go_back(wait_until="networkidle")
-+                        page.wait_for_timeout(1000)
-+                    except Exception:
-+                        pass
-                     index += 1
- 
--        except Exception as e:
--            print("🛑 スクレイピング失敗:", e)
-+        except Exception as exc:
-+            print("🛑 スクレイピング失敗:", exc)
- 
-         browser.close()
--    return rows
++        required_fields = [
++            "title",
++            "image_url",
++            "image_link",
++            "description",
++            "detail_url",
++            "official_url",
++        ]
++        missing = [field for field in required_fields if not data.get(field)]
++        if missing:
++            raise ValueError(f"Missing fields for rank {rank}: {', '.join(missing)}")
 +
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
-+
-+
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-+        return
-+
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-+    try:
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
- 
- 
- def main() -> None:
--    sheet = get_sheet()
--    existing_urls = fetch_existing_urls(sheet)
--    rows = scrape_items(existing_urls)
--    if rows:
--        sheet.append_rows(rows, value_input_option="USER_ENTERED")
--        print(f"📥 {len(rows)} 件追記完了")
--    else:
--        print("📭 新規データなし")
-+    start = time.time()
-+    items = scrape_cardel()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
- 
- 
- if __name__ == "__main__":
-     main()
-diff --git a/ciel_scraper.py b/ciel_scraper.py
-index f52c453d49712f6ea89d9417f1d834bcc8c4074e..d0f49c865b0d9b00e105937c2825d96aeec9584a 100644
---- a/ciel_scraper.py
-+++ b/ciel_scraper.py
-@@ -1,101 +1,138 @@
--import base64
-+import json
- import os
--from urllib.parse import urlparse
-+import re
-+import time
-+from typing import List
-+from urllib.parse import urljoin, urlparse
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
--def strip_query(url: str) -> str:
--    parsed = urlparse(url)
--    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
- 
--# --- Google Sheets 認証 ---
--with open("credentials.json", "w") as f:
--    f.write(base64.b64decode(os.environ["GSHEET_JSON"]).decode("utf-8"))
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
-+BASE_URL = "https://ciel-toreca.com/"
-+SOURCE_SLUG = "ciel-toreca"
- 
--scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
--creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
--gc = gspread.authorize(creds)
--spreadsheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit")
--sheet = spreadsheet.worksheet("その他")
- 
--# --- 既存データ取得（画像URLで重複チェック） ---
--existing_data = sheet.get_all_values()[1:]
--existing_image_urls = {strip_query(row[1]) for row in existing_data if len(row) > 1}
-+def strip_query(url: str) -> str:
-+    parsed = urlparse(url)
-+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}".rstrip("/")
- 
--results = []
--html = ""
- 
--with sync_playwright() as p:
--    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
--    page = browser.new_page()
-+def scrape_ciel() -> List[dict]:
-     print("🔍 ciel-toreca スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
-+    html_snapshot = ""
-+
-+    with sync_playwright() as p:
-+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-+        page = browser.new_page()
-+
-+        try:
-+            page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-+            page.wait_for_selector("div.cursor-pointer", timeout=60000)
-+        except Exception as exc:
-+            print(f"🛑 ページ読み込みエラー: {exc}")
-+            try:
-+                html = page.content()
-+                with open("ciel_page_debug.html", "w", encoding="utf-8") as f:
-+                    f.write(html)
-+            except Exception:
-+                pass
-+            browser.close()
-+            return items
-+
-+        html_snapshot = page.content()
-+        scraped = page.evaluate(
-+            """
-+            () => {
-+                const cards = document.querySelectorAll('div.cursor-pointer a[href*="/gacha/"]');
-+                const results = [];
-+                cards.forEach(a => {
-+                    const img = a.querySelector('img');
-+                    if (!img) return;
-+                    const image = img.getAttribute('src') || img.getAttribute('data-src') || '';
-+                    const title = img.getAttribute('alt') || img.getAttribute('title') || '';
-+                    const ptEl = a.querySelector('div.flex.items-center span.font-semibold');
-+                    const pt = ptEl ? ptEl.textContent.trim() : '';
-+                    const url = a.getAttribute('href') || a.href || '';
-+                    results.push({ title, image, url, pt });
-+                });
-+                return results;
-+            }
-+            """
++        return cls(
++            rank=rank,
++            title=str(data["title"]),
++            image_url=str(data["image_url"]),
++            image_link=str(data["image_link"]),
++            description=str(data["description"]),
++            detail_url=str(data["detail_url"]),
++            official_url=str(data["official_url"]),
 +        )
- 
--    try:
--        page.goto("https://ciel-toreca.com/", timeout=60000, wait_until="networkidle")
--    except Exception as e:
--        print(f"🛑 ページ読み込みエラー: {str(e)}")
--        html = page.content()
-         browser.close()
--        exit()
--
--    page.wait_for_selector("div.cursor-pointer", timeout=60000)
--    html = page.content()
--    items = page.evaluate(
--        """
--        () => {
--            const cards = document.querySelectorAll('div.cursor-pointer a[href*="/gacha/"]');
--            const results = [];
--            cards.forEach(a => {
--                const img = a.querySelector('img');
--                if (!img) return;
--                const image = img.getAttribute('src') || img.getAttribute('data-src');
--                const title = img.getAttribute('alt') || img.getAttribute('title') || '';
--                const ptEl = a.querySelector('div.flex.items-center span.font-semibold');
--                const pt = ptEl ? ptEl.textContent.trim() + 'PT' : '';
--                results.push({ title, image, url: a.href, pt });
--            });
--            return results;
--        }
--        """
--    )
--
--    browser.close()
- 
-+    for item in scraped or []:
-+        title = (item.get("title") or "noname").strip() or "noname"
-+        image_url = (item.get("image") or "").strip()
-+        detail_url = (item.get("url") or "").strip()
-+
-+        if image_url.startswith("/"):
-+            image_url = urljoin(BASE_URL, image_url)
-+        if detail_url.startswith("/"):
-+            detail_url = urljoin(BASE_URL, detail_url)
-+
-+        norm_detail = strip_query(detail_url)
-+        if not norm_detail or norm_detail in seen:
-+            continue
-+
-+        points = re.sub(r"[^0-9]", "", item.get("pt", ""))
-+
-+        seen.add(norm_detail)
-+        items.append({
-+            "source_slug": SOURCE_SLUG,
-+            "title": title,
-+            "image_url": image_url,
-+            "detail_url": detail_url,
-+            "points": points,
-+            "price": None,
-+            "rarity": None,
-+            "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")},
-+        })
-+
-+    if html_snapshot:
-+        with open("ciel_page_debug.html", "w", encoding="utf-8") as f:
-+            f.write(html_snapshot)
-+
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
 +
 +
-+def post_to_wordpress(items: List[dict]) -> None:
-     if not items:
--        print("📭 画像情報が取得できませんでした。")
--    else:
--        print(f"📦 {len(items)} 件の画像を取得")
--        for item in items:
--            title = item["title"].strip() if item["title"].strip() else "noname"
--            image_url = item["image"]
--            detail_url = item["url"]
--
--            if image_url.startswith("/"):
--                image_url = "https://ciel-toreca.com" + image_url
--            if detail_url.startswith("/"):
--                detail_url = "https://ciel-toreca.com" + detail_url
--
--            norm_url = strip_query(image_url)
--            if norm_url in existing_image_urls:
--                print(f"⏭ スキップ（重複）: {title}")
--                continue
--
--            print(f"✅ 取得: {title}")
--            results.append([title, image_url, detail_url, item.get("pt", "")])
--
--# --- スプレッドシートに追記 ---
--if results:
-+        print("📭 投稿データなし")
-+        return
++def load_entries(path: Path) -> List[RankingEntry]:
++    if not path.exists():
++        raise FileNotFoundError(f"Ranking data file not found: {path}")
++    with path.open(encoding="utf-8") as f:
++        raw = json.load(f)
++    if not isinstance(raw, list):
++        raise ValueError("Ranking data must be a JSON list")
++    entries = [RankingEntry.from_dict(item) for item in raw]
++    entries.sort(key=lambda item: item.rank)
++    return entries
 +
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-     try:
--        sheet.append_rows(results, value_input_option='USER_ENTERED')
--        print(f"📥 {len(results)} 件追記完了")
--    except Exception as e:
--        print(f"❌ スプレッドシート書き込み失敗: {str(e)}")
--else:
--    print("📭 新規データなし")
--
--# --- デバッグHTML保存 ---
--if html:
--    with open("ciel_page_debug.html", "w", encoding="utf-8") as f:
--        f.write(html)
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
++
++def build_block_content(entries: List[RankingEntry]) -> str:
++    blocks: List[str] = []
++    for entry in entries:
++        title = html.escape(entry.title)
++        description = html.escape(entry.description).replace("\n", "<br>")
++        blocks.append(
++            f"""
++<!-- wp:group {{"className":"ranking-entry"}} -->
++<div class="wp-block-group ranking-entry">
++    <!-- wp:heading {{"level":3}} -->
++    <h3 class="ranking-entry__title">第{entry.rank}位 {title}</h3>
++    <!-- /wp:heading -->
++
++    <!-- wp:columns -->
++    <div class="wp-block-columns ranking-entry__body">
++        <!-- wp:column {{"width":"30%"}} -->
++        <div class="wp-block-column" style="flex-basis:30%">
++            <!-- wp:image {{"sizeSlug":"full","linkDestination":"custom","href":"{html.escape(entry.image_link)}"}} -->
++            <figure class="wp-block-image size-full ranking-entry__image">
++                <a href="{html.escape(entry.image_link)}" target="_blank" rel="noreferrer noopener">
++                    <img src="{html.escape(entry.image_url)}" alt="{title}" />
++                </a>
++            </figure>
++            <!-- /wp:image -->
++        </div>
++        <!-- /wp:column -->
++
++        <!-- wp:column -->
++        <div class="wp-block-column">
++            <!-- wp:paragraph -->
++            <p class="ranking-entry__description">{description}</p>
++            <!-- /wp:paragraph -->
++
++            <!-- wp:buttons {{"layout":{{"type":"flex","justifyContent":"left"}}}} -->
++            <div class="wp-block-buttons">
++                <!-- wp:button {{"className":"is-style-outline ranking-entry__detail"}} -->
++                <div class="wp-block-button is-style-outline ranking-entry__detail">
++                    <a class="wp-block-button__link wp-element-button" href="{html.escape(entry.detail_url)}" target="_blank" rel="noreferrer noopener">詳細を見る</a>
++                </div>
++                <!-- /wp:button -->
++
++                <!-- wp:button {{"className":"ranking-entry__official"}} -->
++                <div class="wp-block-button ranking-entry__official">
++                    <a class="wp-block-button__link wp-element-button" href="{html.escape(entry.official_url)}" target="_blank" rel="noreferrer noopener">公式サイトへ</a>
++                </div>
++                <!-- /wp:button -->
++            </div>
++            <!-- /wp:buttons -->
++        </div>
++        <!-- /wp:column -->
++    </div>
++    <!-- /wp:columns -->
++</div>
++<!-- /wp:group -->
++""".strip()
++        )
++
++    intro_block = (
++        "<!-- wp:paragraph -->\n"
++        "<p class=\"ranking-intro\">管理画面から直接編集できるランキングです。</p>\n"
++        "<!-- /wp:paragraph -->"
++    )
++
++    return "\n\n".join([intro_block, *blocks])
++
++
++def _auth() -> tuple[str, str]:
++    user = os.environ.get("WP_USER")
++    password = os.environ.get("WP_APP_PASS")
++    if not user or not password:
++        raise RuntimeError("WP_USER and WP_APP_PASS must be set")
++    return user, password
++
++
++def _api_base() -> str:
++    base = os.environ.get("WP_API_BASE")
++    if not base:
++        raise RuntimeError("WP_API_BASE environment variable is required")
++    return base.rstrip("/")
++
++
++def fetch_page_id(slug: str) -> Optional[int]:
++    url = f"{_api_base()}/pages"
++    res = requests.get(url, params={"slug": slug}, auth=_auth(), timeout=30)
++    res.raise_for_status()
++    payload = res.json()
++    if payload:
++        return int(payload[0]["id"])
++    return None
++
++
++def upsert_page(content: str, entries: List[RankingEntry], *, slug: str, title: str) -> None:
++    data = {
++        "title": title,
++        "content": content,
++        "status": "publish",
++        "slug": slug,
++        "meta": {"ranking_data": json.dumps([entry.__dict__ for entry in entries])},
++    }
++    page_id = fetch_page_id(slug)
++    base = _api_base()
++
++    if page_id:
++        url = f"{base}/pages/{page_id}"
++        response = requests.post(url, auth=_auth(), json=data, timeout=30)
++        action = "updated"
++    else:
++        url = f"{base}/pages"
++        response = requests.post(url, auth=_auth(), json=data, timeout=30)
++        action = "created"
++
++    try:
++        response.raise_for_status()
++    except requests.HTTPError as exc:  # pragma: no cover - simple logging
++        raise RuntimeError(f"Failed to upsert page ({response.status_code}): {response.text}") from exc
++
++    print(f"✅ Ranking page {action}: {response.json().get('link')}")
 +
 +
 +def main() -> None:
-+    start = time.time()
-+    items = scrape_ciel()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
++    json_path = Path(os.environ.get("WP_RANKING_JSON", DEFAULT_JSON_PATH))
++    slug = os.environ.get("WP_RANKING_SLUG", DEFAULT_SLUG)
++    title = os.environ.get("WP_RANKING_TITLE", DEFAULT_TITLE)
++
++    entries = load_entries(json_path)
++    content = build_block_content(entries)
++    upsert_page(content, entries, slug=slug, title=title)
 +
 +
 +if __name__ == "__main__":
 +    main()
-diff --git a/clove_oripa_pokemon_banner_scraper.py b/clove_oripa_pokemon_banner_scraper.py
-index 2dc08cb8a0a0a4c00a8c64ff2e0b96209dd619b1..7138884b228a1e97a162c2f33763807757bbee39 100644
---- a/clove_oripa_pokemon_banner_scraper.py
-+++ b/clove_oripa_pokemon_banner_scraper.py
-@@ -1,128 +1,136 @@
-+import json
- import os
--import base64
--from urllib.parse import urljoin, urlparse, parse_qs, unquote
-+import time
-+from typing import List
-+from urllib.parse import parse_qs, urljoin, urlparse, unquote
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
-+
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
- BASE_URL = "https://oripa.clove.jp"
- TARGET_URL = f"{BASE_URL}/oripa/Pokemon"
--SHEET_NAME = "news"
--SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
--
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
--
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    if not SPREADSHEET_URL:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(SPREADSHEET_URL)
--    return spreadsheet.worksheet(SHEET_NAME)
--
--
--def fetch_existing_image_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    urls = set()
--    for row in records[1:]:
--        if len(row) >= 1:
--            urls.add(row[0].strip())
--    return urls
-+SOURCE_SLUG = "clove-oripa-banner"
- 
- 
- def decode_next_image(url: str) -> str:
--    """Decode Next.js image URLs to the original source."""
-     if url.startswith("/_next/image") and "url=" in url:
-         query = parse_qs(urlparse(url).query).get("url")
-         if query:
--            return unquote(query[0])
-+            url = unquote(query[0])
-+    if url.startswith("/"):
-+        url = urljoin(BASE_URL, url)
-     return url
- 
- 
--def scrape_banners(existing_urls: set):
--    print("🔍 Playwright によるスクレイピング開始...")
--    rows = []
-+def extract_title(image_url: str, index: int) -> str:
-+    path = urlparse(image_url).path
-+    name = os.path.basename(path)
-+    return name or f"clove-banner-{index}"
-+
-+
-+def scrape_banners() -> List[dict]:
-+    print("🔍 clove oripa ポケモンバナー スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
-+
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         context = browser.new_context(
--            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
--            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-+            user_agent=(
-+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-+            )
-         )
-         page = context.new_page()
-         try:
-             page.goto(TARGET_URL, timeout=60000, wait_until="load")
--            page.wait_for_timeout(5000)
-+            page.wait_for_timeout(4000)
- 
--            # スライダーをできるだけ進める
-             for _ in range(10):
-                 next_btn = page.query_selector(".swiper-button-next")
-                 if not next_btn:
-                     break
-                 next_btn.click()
--                page.wait_for_timeout(400)
-+                page.wait_for_timeout(300)
- 
-             page.wait_for_selector(".swiper-slide img", timeout=10000)
-             images = page.query_selector_all(".swiper-slide img")
--
--        except Exception as e:
--            print(f"🛑 読み込み失敗: {e}")
--            page.screenshot(path="clove_error.png", full_page=True)
--            html = page.content()
--            with open("clove_oripa_pokemon_banner_debug.html", "w", encoding="utf-8") as f:
--                f.write(html)
-+        except Exception as exc:
-+            print(f"🛑 読み込み失敗: {exc}")
-+            try:
-+                page.screenshot(path="clove_oripa_pokemon_banner_error.png", full_page=True)
-+            except Exception:
-+                pass
-             context.close()
-             browser.close()
--            return rows
-+            return items
- 
--        print(f"🖼️ 検出された画像数: {len(images)}")
--
--        for img in images:
-+        for idx, img in enumerate(images):
-             src = (
-                 img.get_attribute("src")
-                 or img.get_attribute("data-src")
-                 or img.get_attribute("data-lazy")
-             )
-             if not src:
-                 continue
--            src = decode_next_image(src)
--            if src.startswith("/"):
--                src = urljoin(BASE_URL, src)
- 
--            if src not in existing_urls:
--                rows.append([src, TARGET_URL])
--                existing_urls.add(src)
-+            image_url = decode_next_image(src.strip())
-+            if not image_url or image_url in seen:
-+                continue
-+
-+            title = extract_title(image_url, idx)
-+            seen.add(image_url)
-+            items.append({
-+                "source_slug": SOURCE_SLUG,
-+                "title": title,
-+                "image_url": image_url,
-+                "detail_url": TARGET_URL,
-+                "points": None,
-+                "price": None,
-+                "rarity": None,
-+                "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")},
-+            })
- 
-         context.close()
-         browser.close()
- 
--    print(f"✅ {len(rows)} 件の新規バナー")
--    return rows
-+    print(f"✅ {len(items)} 件のバナーを取得")
-+    return items
- 
- 
--def main() -> None:
--    sheet = get_sheet()
--    existing = fetch_existing_image_urls(sheet)
--    rows = scrape_banners(existing)
--    if not rows:
--        print("📭 新規データなし")
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-         return
--    sheet.append_rows(rows, value_input_option="USER_ENTERED")
--    print(f"📥 {len(rows)} 件追記完了")
-+
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-+    try:
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
-+
-+
-+def main() -> None:
-+    start = time.time()
-+    items = scrape_banners()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
- 
- 
- if __name__ == "__main__":
-     main()
-diff --git a/clove_oripa_scraper.py b/clove_oripa_scraper.py
-index 081ce41275bd4975190fb8403b3372fa21c4155b..bf050517ceb00effccff736ca3f6635938701528 100644
---- a/clove_oripa_scraper.py
-+++ b/clove_oripa_scraper.py
-@@ -1,156 +1,160 @@
-+import json
- import os
--import base64
- import re
-+import time
- from typing import List
--from urllib.parse import urljoin, urlparse, unquote
-+from urllib.parse import parse_qs, urljoin, urlparse, unquote
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
--BASE_URL = "https://oripa.clove.jp/oripa/All"
--SHEET_NAME = "その他"
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    spreadsheet_url = os.environ.get("SPREADSHEET_URL")
--    if not spreadsheet_url:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(spreadsheet_url)
--    return spreadsheet.worksheet(SHEET_NAME)
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
-+
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
-+BASE_DOMAIN = "https://oripa.clove.jp"
-+LIST_URL = f"{BASE_DOMAIN}/oripa/All"
-+SOURCE_SLUG = "clove-oripa"
-+
- 
- def normalize_url(url: str) -> str:
-     if not url:
-         return ""
-     if url.startswith("/"):
--        url = urljoin("https://oripa.clove.jp", url)
--    parts = urlparse(url)
--    return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
--
--def fetch_existing_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    urls = set()
--    for row in records[1:]:
--        if len(row) >= 3:
--            u = row[2].strip()
--            if u:
--                norm = normalize_url(u)
--                urls.add(norm)
--    print("既存URLリスト:", urls)
--    return urls
--
--def scrape_items(existing_urls: set) -> List[List[str]]:
--    rows: List[List[str]] = []
--    html = ""
-+        url = urljoin(BASE_DOMAIN, url)
-+    parsed = urlparse(url)
-+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}".rstrip("/")
-+
-+
-+def resolve_image_url(raw: str) -> str:
-+    if not raw:
-+        return ""
-+    if raw.startswith("/_next/image"):
-+        parsed = urlparse(raw)
-+        query = parse_qs(parsed.query)
-+        target = query.get("url", [""])[0]
-+        if target:
-+            raw = unquote(target)
-+    if raw.startswith("/"):
-+        raw = urljoin(BASE_DOMAIN, raw)
-+    return raw
-+
-+
-+def scrape_clove_oripa() -> List[dict]:
-+    print("🔍 oripa.clove.jp スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
-+    html_snapshot = ""
-+
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page()
--        print("🔍 oripa.clove.jp スクレイピング開始...")
-+
-         try:
--            page.goto(BASE_URL, timeout=60000)
-+            page.goto(LIST_URL, timeout=60000)
-             page.wait_for_selector("div.css-k3cv9u", timeout=60000)
--            html = page.content()
-         except Exception as exc:
-             print(f"🛑 ページ読み込みエラー: {exc}")
--            html = page.content()
--            browser.close()
--            if html:
-+            try:
-+                html = page.content()
-                 with open("clove_oripa_page_debug.html", "w", encoding="utf-8") as f:
-                     f.write(html)
--            return rows
-+            except Exception:
-+                pass
-+            browser.close()
-+            return items
- 
--        items = page.evaluate(
-+        html_snapshot = page.content()
-+        scraped = page.evaluate(
-             """
-             () => {
-                 const results = [];
-                 document.querySelectorAll('div.css-k3cv9u').forEach(box => {
-                     const img = box.querySelector('img');
-                     const title = img ? (img.getAttribute('alt') || '').trim() : 'noname';
--                    let img_src = img ? img.getAttribute('src') : '';
--                    let image = img_src;
--                    if (img_src && img_src.startsWith('/_next/image') && img_src.includes('url=')) {
--                        const match = img_src.match(/url=([^&]+)/);
--                        if (match) image = decodeURIComponent(match[1]);
--                    }
--                    // アイテムIDは画像URLから抜き出す
--                    let itemId = "";
--                    const m = image.match(/\\/items\\/([a-z0-9]+)\\.png/);
--                    if (m) itemId = m[1];
--                    // 詳細URL生成
--                    let url = itemId ? `https://oripa.clove.jp/oripa/${itemId}` : "";
--                    // ポイントや残数
--                    let pt = "";
--                    // コイン数など
-+                    const image = img ? (img.getAttribute('src') || '') : '';
-                     const coinEl = box.querySelector('div.css-13pczcl p.chakra-text');
--                    if (coinEl) pt = coinEl.textContent.trim();
--                    // 残り個数
-+                    const pt = coinEl ? coinEl.textContent.trim() : '';
-                     const leftEl = box.querySelector('p.chakra-text.css-m646o3');
--                    let left = leftEl ? leftEl.textContent.trim() : '';
--                    results.push({ title, image, url, pt, left });
-+                    const left = leftEl ? leftEl.textContent.trim() : '';
-+                    let detail = '';
-+                    const link = box.querySelector('a[href*="/oripa/"]');
-+                    if (link) {
-+                        detail = link.getAttribute('href') || '';
-+                    }
-+                    results.push({ title, image, detail, pt, left });
-                 });
-                 return results;
-             }
-             """
-         )
--        browser.close()
- 
--    for item in items:
--        title = item.get("title", "noname") or "noname"
--        image_url = item.get("image", "")
--        detail_url = item.get("url", "")
--        pt_text = item.get("pt", "")
--        left_text = item.get("left", "")
-+        browser.close()
- 
--        detail_url = normalize_url(detail_url)
--        if image_url and image_url.startswith("/"):
--            image_url = urljoin("https://oripa.clove.jp", image_url)
-+    for item in scraped or []:
-+        title = (item.get("title") or "noname").strip() or "noname"
-+        image_url = resolve_image_url(item.get("image", "").strip())
-+        detail_url = normalize_url(item.get("detail", "").strip())
-+        points = re.sub(r"[^0-9]", "", item.get("pt", ""))
-+        stock_text = item.get("left", "").strip()
- 
--        print(f"取得詳細URL: '{detail_url}'")
--        if not detail_url or detail_url in [":", "https://oripa.clove.jp/oripa/All"]:
--            print(f"⚠️ URLが空または異常: {title}")
-+        if not detail_url or detail_url in (":", f"{BASE_DOMAIN}/oripa/All"):
-             continue
--
--        if detail_url in existing_urls:
--            print(f"⏭ スキップ（重複）: {title} ({detail_url})")
-+        if detail_url in seen:
-             continue
- 
--        # 必要に応じて left_textも入れる: rows.append([title, image_url, detail_url, pt_text, left_text])
--        rows.append([title, image_url, detail_url, pt_text])
--        existing_urls.add(detail_url)
--
--    if html:
-+        seen.add(detail_url)
-+        items.append({
-+            "source_slug": SOURCE_SLUG,
-+            "title": title,
-+            "image_url": image_url,
-+            "detail_url": detail_url,
-+            "points": points,
-+            "price": None,
-+            "rarity": None,
-+            "extra": {
-+                "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-+                "stock": stock_text,
-+            },
-+        })
-+
-+    if html_snapshot:
-         with open("clove_oripa_page_debug.html", "w", encoding="utf-8") as f:
--            f.write(html)
--    return rows
-+            f.write(html_snapshot)
- 
--def main() -> None:
--    try:
--        sheet = get_sheet()
--    except Exception as exc:
--        print(f"❌ シート取得失敗: {exc}")
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
-+
-+
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-         return
- 
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-     try:
--        existing_urls = fetch_existing_urls(sheet)
--        rows = scrape_items(existing_urls)
--        if rows:
--            sheet.append_rows(rows, value_input_option="USER_ENTERED")
--            print(f"📥 {len(rows)} 件追記完了")
--        else:
--            print("📭 新規データなし")
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-     except Exception as exc:
--        print(f"❌ エラー: {exc}")
-+        print("🛑 WordPress送信中にエラー:", exc)
-+
-+
-+def main() -> None:
-+    start = time.time()
-+    items = scrape_clove_oripa()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
-+
- 
- if __name__ == "__main__":
-     main()
-diff --git a/dopa_game_banner_scraper.py b/dopa_game_banner_scraper.py
-index 827fbcd6f01263a0e5b51f971172c2512c41cb68..541bd68bee3ba7ea31584d9774d00ad98137dbd5 100644
---- a/dopa_game_banner_scraper.py
-+++ b/dopa_game_banner_scraper.py
-@@ -1,95 +1,109 @@
--import base64
-+import json
- import os
--from urllib.parse import urljoin
-+import time
-+from typing import List
-+from urllib.parse import urljoin, urlparse
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
-+
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
- BASE_URL = "https://dopa-game.jp"
- TARGET_URL = BASE_URL
--SHEET_NAME = "news"
--SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
--
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
-+SOURCE_SLUG = "dopa-game-banner"
- 
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    if not SPREADSHEET_URL:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(SPREADSHEET_URL)
--    return spreadsheet.worksheet(SHEET_NAME)
- 
-+def extract_title(image_url: str, index: int) -> str:
-+    path = urlparse(image_url).path
-+    name = os.path.basename(path)
-+    return name or f"dopa-banner-{index}"
- 
--def fetch_existing_image_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    return set(row[0].strip() for row in records[1:] if row and row[0].strip())
- 
-+def scrape_banners() -> List[dict]:
-+    print("🔍 dopa-game.jp バナー スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
- 
--def scrape_banners(existing_urls: set):
--    print("🔍 Playwright によるスクレイピング開始...")
--    rows = []
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page(
--            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-+            user_agent=(
-+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-+            )
-         )
-         try:
-             page.goto(TARGET_URL, timeout=60000, wait_until="load")
--            page.wait_for_timeout(8000)
--            slides = page.query_selector_all(".slick-slide")
--        except Exception as e:
--            print(f"🛑 読み込み失敗: {e}")
-+            page.wait_for_timeout(6000)
-+            slides = page.query_selector_all(".slick-slide img")
-+        except Exception as exc:
-+            print(f"🛑 読み込み失敗: {exc}")
-+            try:
-+                page.screenshot(path="dopa_banner_error.png", full_page=True)
-+            except Exception:
-+                pass
-             browser.close()
--            return rows
-+            return items
- 
--        for slide in slides:
--            img = slide.query_selector("img")
--
--            if not img:
--                continue
--
--            src = img.get_attribute("src") or ""
-+        for idx, slide in enumerate(slides):
-+            src = (slide.get_attribute("src") or "").strip()
-             if not src:
-                 continue
-+            image_url = urljoin(BASE_URL, src)
-+            if image_url in seen:
-+                continue
- 
--            src = urljoin(BASE_URL, src)
--            href = BASE_URL  # B列は常に https://dopa-game.jp に固定
--
--            if src not in existing_urls:
--                rows.append([src, href])
--                existing_urls.add(src)
-+            title = extract_title(image_url, idx)
-+            seen.add(image_url)
-+            items.append({
-+                "source_slug": SOURCE_SLUG,
-+                "title": title,
-+                "image_url": image_url,
-+                "detail_url": TARGET_URL,
-+                "points": None,
-+                "price": None,
-+                "rarity": None,
-+                "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")},
-+            })
- 
-         browser.close()
- 
--    print(f"✅ {len(rows)} 件の新規バナー")
--    return rows
-+    print(f"✅ {len(items)} 件のバナーを取得")
-+    return items
- 
- 
--def main() -> None:
--    sheet = get_sheet()
--    existing = fetch_existing_image_urls(sheet)
--    rows = scrape_banners(existing)
--    if not rows:
--        print("📭 新規データなし")
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-         return
--    sheet.append_rows(rows, value_input_option="USER_ENTERED")
--    print(f"📥 {len(rows)} 件追記完了")
-+
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-+    try:
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
-+
-+
-+def main() -> None:
-+    start = time.time()
-+    items = scrape_banners()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
- 
- 
- if __name__ == "__main__":
-     main()
-diff --git a/dorima_scraper.py b/dorima_scraper.py
-index ec6f4f08d64f991b2f504c2273ef3a512dd70afd..d581413c993fd85e25df0c207d16f492011d6dc8 100644
---- a/dorima_scraper.py
-+++ b/dorima_scraper.py
-@@ -1,135 +1,144 @@
--import base64
-+import json
- import os
-+import re
-+import time
- from typing import List
- from urllib.parse import urljoin, urlparse
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
-+
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
- BASE_URL = "https://dorima8.com/"
--SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
--SHEET_NAME = "その他"
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    if not SPREADSHEET_URL:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(SPREADSHEET_URL)
--    return spreadsheet.worksheet(SHEET_NAME)
-+SOURCE_SLUG = "dorima"
-+
- 
- def strip_query(url: str) -> str:
-     parts = urlparse(url)
--    return f"{parts.scheme}://{parts.netloc}{parts.path}"
--
--def fetch_existing_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    urls = set()
--    for row in records[1:]:
--        if len(row) >= 3:
--            url = row[2].strip()
--            if url:
--                urls.add(strip_query(url))
--    return urls
--
--def parse_items(page) -> List[dict]:
--    return page.evaluate(
--        """
--        () => {
--            const results = [];
--            document.querySelectorAll('div.banner_base.banner').forEach(box => {
--                const img = box.querySelector('img.current') || box.querySelector('img');
--                const image = img ? (img.getAttribute('src') || '') : '';
--                let title = '';
--                const nameEl = box.querySelector('.name_area-pack_name');
--                if (nameEl) title = nameEl.textContent.trim();
--                if (!title && img) {
--                    title = (img.getAttribute('alt') || img.getAttribute('title') || '').trim();
--                }
--                let url = '';
--                const a = box.querySelector('a[href]') || box.closest('a[href]');
--                if (a) url = a.getAttribute('href') || '';
--                if (!url) {
--                    const m = image.match(/\/pack\/(\d+)/);
--                    if (m) url = `/pack/${m[1]}`;
--                }
--                let pt = '';
--                const ptEl = box.querySelector('.point_area');
--                if (ptEl) {
--                    const txt = ptEl.textContent.replace(/[,\s]/g, '');
--                    const m2 = txt.match(/(\d+)/);
--                    if (m2) pt = m2[1];
--                }
--                results.push({title, image, url, pt});
--            });
--            return results;
--        }
--        """
--    )
--
--def scrape_items(existing_urls: set) -> List[List[str]]:
--    rows: List[List[str]] = []
-+    return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
-+
-+
-+def scrape_dorima() -> List[dict]:
-+    print("🔍 dorima8.com スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
-+
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page()
--        print("🔍 dorima8.com スクレイピング開始...")
-         try:
-             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-             page.wait_for_selector('div.banner_base.banner', timeout=60000)
-         except Exception as exc:
--            html = page.content()
--            with open('dorima_debug.html', 'w', encoding='utf-8') as f:
--                f.write(html)
--            browser.close()
-             print(f"🛑 ページ読み込み失敗: {exc}")
--            return rows
-+            try:
-+                html = page.content()
-+                with open('dorima_debug.html', 'w', encoding='utf-8') as f:
-+                    f.write(html)
-+            except Exception:
-+                pass
-+            browser.close()
-+            return items
-+
-+        scraped = page.evaluate(
-+            """
-+            () => {
-+                const results = [];
-+                document.querySelectorAll('div.banner_base.banner').forEach(box => {
-+                    const img = box.querySelector('img.current') || box.querySelector('img');
-+                    const image = img ? (img.getAttribute('src') || '') : '';
-+                    let title = '';
-+                    const nameEl = box.querySelector('.name_area-pack_name');
-+                    if (nameEl) title = nameEl.textContent.trim();
-+                    if (!title && img) {
-+                        title = (img.getAttribute('alt') || img.getAttribute('title') || '').trim();
-+                    }
-+                    let detail = '';
-+                    const link = box.querySelector('a[href]') || box.closest('a[href]');
-+                    if (link) detail = link.getAttribute('href') || '';
-+                    if (!detail && image) {
-+                        const m = image.match(/\/pack\/(\d+)/);
-+                        if (m) detail = `/pack/${m[1]}`;
-+                    }
-+                    let pt = '';
-+                    const ptEl = box.querySelector('.point_area');
-+                    if (ptEl) {
-+                        const txt = ptEl.textContent.replace(/[,\s]/g, '');
-+                        const m2 = txt.match(/(\d+)/);
-+                        if (m2) pt = m2[1];
-+                    }
-+                    results.push({ title, image, detail, pt });
-+                });
-+                return results;
-+            }
-+            """
-+        )
- 
--        items = parse_items(page)
-         browser.close()
- 
--    for item in items:
--        detail_url = item.get('url', '').strip()
--        image_url = item.get('image', '').strip()
--        title = item.get('title', 'noname').strip() or 'noname'
--        pt_text = item.get('pt', '').strip()
-+    for item in scraped or []:
-+        detail_url = (item.get('detail') or '').strip()
-+        image_url = (item.get('image') or '').strip()
-+        title = (item.get('title') or 'noname').strip() or 'noname'
-+        points = re.sub(r"[^0-9]", "", item.get('pt', ''))
- 
-         if detail_url.startswith('/'):
-             detail_url = urljoin(BASE_URL, detail_url)
-         if image_url.startswith('/'):
-             image_url = urljoin(BASE_URL, image_url)
- 
-         norm_url = strip_query(detail_url)
--        if norm_url in existing_urls:
--            print(f"⏭ スキップ（重複）: {title}")
-+        if not norm_url or norm_url in seen:
-             continue
- 
--        rows.append([title, image_url, detail_url, pt_text])
--        existing_urls.add(norm_url)
--    return rows
-+        seen.add(norm_url)
-+        items.append({
-+            "source_slug": SOURCE_SLUG,
-+            "title": title,
-+            "image_url": image_url,
-+            "detail_url": detail_url,
-+            "points": points,
-+            "price": None,
-+            "rarity": None,
-+            "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")},
-+        })
-+
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
-+
-+
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-+        return
-+
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-+    try:
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
-+
- 
- def main() -> None:
--    sheet = get_sheet()
--    existing_urls = fetch_existing_urls(sheet)
--    rows = scrape_items(existing_urls)
--    if rows:
--        sheet.append_rows(rows, value_input_option='USER_ENTERED')
--        print(f"📥 {len(rows)} 件追記完了")
--    else:
--        print("📭 新規データなし")
-+    start = time.time()
-+    items = scrape_dorima()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
-+
- 
- if __name__ == '__main__':
-     main()
-diff --git a/dream_oripa_scraper.py b/dream_oripa_scraper.py
-index af41f6aca4663fb3d8afb01deafda354bc0b38a2..a085db3010005fa05c808d761c38abc7651087d2 100644
---- a/dream_oripa_scraper.py
-+++ b/dream_oripa_scraper.py
-@@ -1,135 +1,136 @@
-+import json
- import os
--import base64
- import re
-+import time
- from typing import List
- from urllib.parse import urljoin
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
--BASE_URL = "https://dream-oripa.jp/"
--SHEET_NAME = "その他"
--SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
- 
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
-+BASE_URL = "https://dream-oripa.jp/"
- CARD_SELECTOR = "div.card"
- PRICE_SELECTOR = "span.gacha-price"
-+SOURCE_SLUG = "dream-oripa"
- 
- 
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
--
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    if not SPREADSHEET_URL:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(SPREADSHEET_URL)
--    return spreadsheet.worksheet(SHEET_NAME)
--
--
--def fetch_existing_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    url_set = set()
--    for row in records[1:]:
--        if len(row) >= 3:
--            url_set.add(row[2].strip())
--    return url_set
--
--
--def extract_items(existing_urls: set) -> List[List[str]]:
--    rows: List[List[str]] = []
-+def scrape_dream_oripa() -> List[dict]:
-+    print("🔍 dream-oripa.jp スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
-+
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page()
--        print("\U0001F50D dream-oripa.jp スクレイピング開始...")
-         try:
-             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-             page.wait_for_selector(CARD_SELECTOR, timeout=60000)
-         except Exception as exc:
--            print(f"\U0001F6D1 ページ読み込み失敗: {exc}")
--            html = page.content()
--            with open("dream_oripa_debug.html", "w", encoding="utf-8") as f:
--                f.write(html)
-+            print(f"🛑 ページ読み込み失敗: {exc}")
-+            try:
-+                html = page.content()
-+                with open("dream_oripa_debug.html", "w", encoding="utf-8") as f:
-+                    f.write(html)
-+            except Exception:
-+                pass
-             browser.close()
--            return rows
-+            return items
- 
-         cards = page.query_selector_all(CARD_SELECTOR)
-         print(f"検出されたカード数: {len(cards)}")
--        for card in cards:
-+        for idx, card in enumerate(cards):
-             try:
-                 link = card.query_selector("a[href]")
-                 if not link:
-                     continue
--                detail_url = link.get_attribute("href") or ""
-+
-+                detail_url = (link.get_attribute("href") or "").strip()
-                 if detail_url.startswith("/"):
-                     detail_url = urljoin(BASE_URL, detail_url)
--                detail_url = detail_url.strip()
--                if not detail_url or detail_url in existing_urls:
-+                if not detail_url or detail_url in seen:
-                     continue
- 
-                 img = link.query_selector("img") or card.query_selector("img")
-                 image_url = ""
-                 title = "noname"
-                 if img:
-                     image_url = (
-                         img.get_attribute("src")
-                         or img.get_attribute("data-src")
-                         or ""
-                     ).strip()
-                     if image_url.startswith("/"):
-                         image_url = urljoin(BASE_URL, image_url)
--                    alt = img.get_attribute("alt") or img.get_attribute("title")
--                    if alt:
--                        alt = alt.strip()
--                        if not re.match(r"^https?://", alt):
--                            title = alt or title
-+                    alt = (img.get_attribute("alt") or img.get_attribute("title") or "").strip()
-+                    if alt and not re.match(r"^https?://", alt):
-+                        title = alt or title
-                 if title == "noname":
-                     text = card.inner_text().strip()
-                     if text:
-                         title = text.splitlines()[0]
- 
-                 pt_value = ""
-                 pt_el = card.query_selector(PRICE_SELECTOR)
-                 if pt_el:
-                     t = pt_el.inner_text().replace(",", "")
-                     m = re.search(r"(\d{1,6})", t)
-                     if m:
-                         pt_value = m.group(1)
- 
--                rows.append([title, image_url, detail_url, pt_value])
--                existing_urls.add(detail_url)
-+                seen.add(detail_url)
-+                items.append({
-+                    "source_slug": SOURCE_SLUG,
-+                    "title": title,
-+                    "image_url": image_url,
-+                    "detail_url": detail_url,
-+                    "points": pt_value,
-+                    "price": None,
-+                    "rarity": None,
-+                    "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S"), "index": idx},
-+                })
-             except Exception as exc:
-                 print(f"⚠ 取得スキップ: {exc}")
-                 continue
-+
-         browser.close()
--    return rows
- 
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
- 
--def main() -> None:
--    sheet = get_sheet()
--    existing_urls = fetch_existing_urls(sheet)
--    rows = extract_items(existing_urls)
--    if not rows:
--        print("\U0001F4E5 新規データなし")
-+
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-         return
-+
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-     try:
--        sheet.append_rows(rows, value_input_option="USER_ENTERED")
--        print(f"\U0001F4E4 {len(rows)} 件追記完了")
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-     except Exception as exc:
--        print(f"❌ スプレッドシート書き込み失敗: {exc}")
-+        print("🛑 WordPress送信中にエラー:", exc)
-+
-+
-+def main() -> None:
-+    start = time.time()
-+    items = scrape_dream_oripa()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
- 
- 
- if __name__ == "__main__":
-     main()
-diff --git a/eve_gacha_scraper.py b/eve_gacha_scraper.py
-index 279d4ee6c418f33cef034823af275a61d43ebe26..30a760449f9783c8b8c7428c23870290f47a96b5 100644
---- a/eve_gacha_scraper.py
-+++ b/eve_gacha_scraper.py
-@@ -1,122 +1,141 @@
-+import json
- import os
--import base64
- import re
-+import time
- from typing import List
- from urllib.parse import urljoin
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
-+
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
- BASE_URL = "https://eve-gacha.com/"
--SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/11agq4oxQxT1g9ZNw_Ad9g7nc7PvytHr1uH5BSpwomiE/edit"
--SHEET_NAME = "その他"
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
--
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    spreadsheet = client.open_by_url(SPREADSHEET_URL)
--    return spreadsheet.worksheet(SHEET_NAME)
--
--def fetch_existing_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    url_set = set()
--    for row in records[1:]:
--        if len(row) >= 3:
--            url_set.add(row[2].strip())
--    return url_set
--
--def fetch_items(existing_urls: set) -> List[List[str]]:
--    rows: List[List[str]] = []
-+SOURCE_SLUG = "eve-gacha"
-+
-+
-+def scrape_eve_gacha() -> List[dict]:
-+    print("🔍 eve-gacha.com スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
-+
-     with sync_playwright() as p:
--        browser = p.chromium.launch(headless=True)
-+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page()
--        page.goto(BASE_URL, timeout=60000)
--        page.wait_for_timeout(3000)
-+        try:
-+            page.goto(BASE_URL, timeout=60000)
-+            page.wait_for_timeout(3000)
-+        except Exception as exc:
-+            print(f"🛑 ページ読み込み失敗: {exc}")
-+            browser.close()
-+            return items
- 
-         cards = page.query_selector_all("a[href*='/gacha/']")
-         print(f"取得したaタグ数: {len(cards)}")
-         if len(cards) == 0:
--            print("⚠️ Playwright経由でもaタグがゼロなら、セレクタ再調整やJS側の仕様変更を疑ってください")
--        for a in cards:
--            detail_url = a.get_attribute("href")
--            if not detail_url:
--                continue
-+            print("⚠️ aタグが取得できませんでした。セレクタの見直しが必要かもしれません。")
-+
-+        for idx, a in enumerate(cards):
-+            detail_url = a.get_attribute("href") or ""
-             if detail_url.startswith("/"):
-                 detail_url = urljoin(BASE_URL, detail_url)
-             detail_url = detail_url.strip()
--            if detail_url in existing_urls:
-+            if not detail_url or detail_url in seen:
-                 continue
- 
--            # カードのimg/タイトル
-             img = a.query_selector("img")
-             image_url = ""
-             title = "noname"
-             if img:
--                image_url = img.get_attribute("data-src") or img.get_attribute("src") or ""
-+                image_url = (
-+                    img.get_attribute("data-src")
-+                    or img.get_attribute("src")
-+                    or ""
-+                ).strip()
-                 if image_url.startswith("/"):
-                     image_url = urljoin(BASE_URL, image_url)
--                image_url = image_url.strip()
--                alt = img.get_attribute("alt") or img.get_attribute("title")
-+                alt = (img.get_attribute("alt") or img.get_attribute("title") or "").strip()
-                 if alt:
--                    title = alt.strip() or title
-+                    title = alt or title
-             if title == "noname":
-                 text = a.inner_text().strip()
-                 if text:
-                     title = text.split()[0]
- 
--            # === PT（価格）取得 ===
--            # aタグの一番近い「カード親div」を取得
-             parent_card = a
--            for _ in range(5):  # 5階層まで遡る
--                tmp = parent_card.evaluate_handle("el => el.parentElement")
--                # 親divのclassをチェック（bg-yellowやshadowやborderが目印）
--                class_name = tmp.evaluate("el => el.className")
--                if isinstance(class_name, str) and ("bg-yellow" in class_name or "border" in class_name or "shadow" in class_name):
-+            pt = ""
-+            try:
-+                for _ in range(5):
-+                    tmp = parent_card.evaluate_handle("el => el.parentElement")
-+                    class_name = tmp.evaluate("el => el.className")
-+                    if isinstance(class_name, str) and (
-+                        "bg-yellow" in class_name or
-+                        "border" in class_name or
-+                        "shadow" in class_name
-+                    ):
-+                        parent_card = tmp
-+                        break
-                     parent_card = tmp
--                    break
--                parent_card = tmp
- 
--            # 親カードdiv内でspan.font-boldすべて取得→テキストからPT抽出
--            pt = ""
--            pt_elements = parent_card.query_selector_all("span.font-bold")
--            pt_candidates = []
--            for e in pt_elements:
--                t = e.inner_text().strip()
--                m = re.search(r"(\d{3,6})", t.replace(",", ""))
--                if m:
--                    pt_candidates.append(m.group(1))
--            if pt_candidates:
--                pt = pt_candidates[0]
--            # === PT取得ここまで ===
--
--            rows.append([title, image_url, detail_url, pt])
--            existing_urls.add(detail_url)
-+                pt_elements = parent_card.query_selector_all("span.font-bold")
-+                for e in pt_elements:
-+                    t = e.inner_text().strip()
-+                    m = re.search(r"(\d{3,6})", t.replace(",", ""))
-+                    if m:
-+                        pt = m.group(1)
-+                        break
-+            except Exception:
-+                pass
-+
-+            seen.add(detail_url)
-+            items.append({
-+                "source_slug": SOURCE_SLUG,
-+                "title": title,
-+                "image_url": image_url,
-+                "detail_url": detail_url,
-+                "points": pt,
-+                "price": None,
-+                "rarity": None,
-+                "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S"), "index": idx},
-+            })
-+
-         browser.close()
--    return rows
- 
--def main() -> None:
--    sheet = get_sheet()
--    existing_urls = fetch_existing_urls(sheet)
--    rows = fetch_items(existing_urls)
--    if not rows:
--        print("📭 No new data to append")
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
-+
-+
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-         return
--    sheet.append_rows(rows, value_input_option="USER_ENTERED")
--    print(f"📥 Appended {len(rows)} new rows")
-+
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-+    try:
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
-+
-+
-+def main() -> None:
-+    start = time.time()
-+    items = scrape_eve_gacha()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
-+
- 
- if __name__ == "__main__":
-     main()
-diff --git a/gachaking_oripa_scraper.py b/gachaking_oripa_scraper.py
-index b2e1d9b0286d551089cd95246f849a2bfecd4af1..b377ed7b5bbdd36c3d02c5bbf65d84e123a30b3f 100644
---- a/gachaking_oripa_scraper.py
-+++ b/gachaking_oripa_scraper.py
-@@ -1,141 +1,142 @@
-+import json
- import os
--import base64
- import re
-+import time
- from typing import List
- from urllib.parse import urljoin, urlparse
- 
--import gspread
--from google.oauth2.service_account import Credentials
-+import requests
- from playwright.sync_api import sync_playwright
- 
--BASE_URL = "https://gachaking-oripa.com/index"
--SHEET_NAME = "その他"
--SPREADSHEET_URL = os.environ.get("SPREADSHEET_URL")
--
--
--def save_credentials() -> str:
--    encoded = os.environ.get("GSHEET_JSON", "")
--    if not encoded:
--        raise RuntimeError("GSHEET_JSON environment variable is missing")
--    with open("credentials.json", "w") as f:
--        f.write(base64.b64decode(encoded).decode("utf-8"))
--    return "credentials.json"
-+# -----------------------------
-+# WordPress REST API 設定
-+# -----------------------------
-+WP_URL = os.getenv("WP_URL") or "https://online-gacha-hack.com/wp-json/oripa/v1/upsert"
-+WP_USER = os.getenv("WP_USER")
-+WP_APP_PASS = os.getenv("WP_APP_PASS")
- 
--
--def get_sheet():
--    creds_path = save_credentials()
--    scopes = [
--        "https://www.googleapis.com/auth/spreadsheets",
--        "https://www.googleapis.com/auth/drive",
--    ]
--    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
--    client = gspread.authorize(creds)
--    if not SPREADSHEET_URL:
--        raise RuntimeError("SPREADSHEET_URL environment variable is missing")
--    spreadsheet = client.open_by_url(SPREADSHEET_URL)
--    return spreadsheet.worksheet(SHEET_NAME)
-+# -----------------------------
-+# スクレイピング対象
-+# -----------------------------
-+BASE_URL = "https://gachaking-oripa.com/index"
-+SOURCE_SLUG = "gachaking-oripa"
- 
- 
- def normalize_url(url: str) -> str:
-     if not url:
-         return ""
-     if url.startswith("/"):
-         url = urljoin("https://gachaking-oripa.com", url)
-     parts = urlparse(url)
-     return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
- 
- 
--def fetch_existing_urls(sheet) -> set:
--    records = sheet.get_all_values()
--    urls = set()
--    for row in records[1:]:
--        if len(row) >= 3:
--            u = row[2].strip()
--            if u:
--                urls.add(normalize_url(u))
--    return urls
--
--
--def scroll_to_bottom(page, max_scrolls=20, pause_ms=500):
-+def scroll_to_bottom(page, max_scrolls: int = 20, pause_ms: int = 500) -> None:
-     last_height = 0
-     for _ in range(max_scrolls):
-         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-         page.wait_for_timeout(pause_ms)
-         height = page.evaluate("document.body.scrollHeight")
-         if height == last_height:
-             break
-         last_height = height
- 
- 
--def parse_items(page) -> List[dict]:
--    return page.evaluate(
--        """
--        () => {
--            const results = [];
--            document.querySelectorAll('div.items.series-guest-manage-height').forEach(item => {
--                const linkEl = item.querySelector('a[link]');
--                const url = linkEl ? linkEl.getAttribute('link') : '';
--                const img = item.querySelector('.bgimg img');
--                const image = img ? (img.getAttribute('data-original') || img.getAttribute('src') || '') : '';
--                const title = img ? (img.getAttribute('alt') || img.getAttribute('title') || '').trim() : '';
--                const ptEl = item.querySelector('.btn-box span.second-text');
--                const pt = ptEl ? ptEl.textContent.trim() : '';
--                results.push({title, image, url, pt});
--            });
--            return results;
--        }
--        """
--    )
--
--
--def scrape_items(existing_urls: set) -> List[List[str]]:
--    rows: List[List[str]] = []
-+def scrape_gachaking() -> List[dict]:
-+    print("🔍 gachaking-oripa スクレイピング開始...")
-+    items: List[dict] = []
-+    seen = set()
-+
-     with sync_playwright() as p:
-         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-         page = browser.new_page()
--        print("🔍 gachaking-oripa スクレイピング開始...")
-         try:
-             page.goto(BASE_URL, timeout=60000, wait_until="networkidle")
-             page.wait_for_selector('div.items', timeout=60000)
-             scroll_to_bottom(page)
-         except Exception as exc:
-             print(f"🛑 ページ読み込み失敗: {exc}")
--            html = page.content()
-+            try:
-+                html = page.content()
-+                with open("gachaking_oripa_debug.html", "w", encoding="utf-8") as f:
-+                    f.write(html)
-+            except Exception:
-+                pass
-             browser.close()
--            with open("gachaking_oripa_debug.html", "w", encoding="utf-8") as f:
--                f.write(html)
--            return rows
-+            return items
-+
-+        scraped = page.evaluate(
-+            """
-+            () => {
-+                const results = [];
-+                document.querySelectorAll('div.items.series-guest-manage-height').forEach(item => {
-+                    const linkEl = item.querySelector('a[link]');
-+                    const url = linkEl ? linkEl.getAttribute('link') : '';
-+                    const img = item.querySelector('.bgimg img');
-+                    const image = img ? (img.getAttribute('data-original') || img.getAttribute('src') || '') : '';
-+                    const title = img ? (img.getAttribute('alt') || img.getAttribute('title') || '').trim() : '';
-+                    const ptEl = item.querySelector('.btn-box span.second-text');
-+                    const pt = ptEl ? ptEl.textContent.trim() : '';
-+                    results.push({ title, image, url, pt });
-+                });
-+                return results;
-+            }
-+            """
-+        )
- 
--        items = parse_items(page)
-         browser.close()
- 
--    for item in items:
--        detail_url = normalize_url(item.get("url", "").strip())
--        if not detail_url or detail_url in existing_urls:
-+    for item in scraped or []:
-+        detail_url = normalize_url((item.get("url") or "").strip())
-+        if not detail_url or detail_url in seen:
-             continue
- 
--        image_url = item.get("image", "").strip()
-+        image_url = (item.get("image") or "").strip()
-         if image_url.startswith("/"):
-             image_url = urljoin("https://gachaking-oripa.com", image_url)
- 
--        title = item.get("title", "").strip() or "noname"
--        pt_text = re.sub(r"[^0-9]", "", item.get("pt", ""))
--
--        rows.append([title, image_url, detail_url, pt_text])
--        existing_urls.add(detail_url)
--    return rows
-+        title = (item.get("title") or "").strip() or "noname"
-+        points = re.sub(r"[^0-9]", "", item.get("pt", ""))
-+
-+        seen.add(detail_url)
-+        items.append({
-+            "source_slug": SOURCE_SLUG,
-+            "title": title,
-+            "image_url": image_url,
-+            "detail_url": detail_url,
-+            "points": points,
-+            "price": None,
-+            "rarity": None,
-+            "extra": {"scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")},
-+        })
-+
-+    print(f"✅ {len(items)} 件のデータを取得")
-+    return items
-+
-+
-+def post_to_wordpress(items: List[dict]) -> None:
-+    if not items:
-+        print("📭 投稿データなし")
-+        return
-+
-+    print(f"🚀 {len(items)}件のデータをWordPressに送信中...")
-+    try:
-+        res = requests.post(WP_URL, json=items, auth=(WP_USER, WP_APP_PASS), timeout=60)
-+        print("Status:", res.status_code)
-+        try:
-+            print("Response:", json.dumps(res.json(), ensure_ascii=False, indent=2))
-+        except Exception:
-+            print("Response:", res.text)
-+    except Exception as exc:
-+        print("🛑 WordPress送信中にエラー:", exc)
- 
- 
- def main() -> None:
--    sheet = get_sheet()
--    existing_urls = fetch_existing_urls(sheet)
--    rows = scrape_items(existing_urls)
--    if rows:
--        sheet.append_rows(rows, value_input_option="USER_ENTERED")
--        print(f"📥 {len(rows)} 件追記完了")
--    else:
--        print("📭 新規データなし")
-+    start = time.time()
-+    items = scrape_gachaking()
-+    post_to_wordpress(items)
-+    print(f"🏁 完了！処理時間: {round(time.time() - start, 2)} 秒")
- 
- 
- if __name__ == "__main__":
-     main()
- 
-EOF
-)
