@@ -1,0 +1,29 @@
+[
+  {
+    "rank": 1,
+    "title": "サンプルガチャA",
+    "image_url": "https://example.com/images/rank1.jpg",
+    "image_link": "https://example.com/gacha/rank1",
+    "description": "ここにランキング対象の説明文を記載します。複数行も\\n利用できます。",
+    "detail_url": "https://example.com/detail/rank1",
+    "official_url": "https://example.com/official/rank1"
+  },
+  {
+    "rank": 2,
+    "title": "サンプルガチャB",
+    "image_url": "https://example.com/images/rank2.jpg",
+    "image_link": "https://example.com/gacha/rank2",
+    "description": "サンプルの2位アイテムです。説明文を差し替えて下さい。",
+    "detail_url": "https://example.com/detail/rank2",
+    "official_url": "https://example.com/official/rank2"
+  },
+  {
+    "rank": 3,
+    "title": "サンプルガチャC",
+    "image_url": "https://example.com/images/rank3.jpg",
+    "image_link": "https://example.com/gacha/rank3",
+    "description": "3位の説明文です。管理画面から自由に編集できます。",
+    "detail_url": "https://example.com/detail/rank3",
+    "official_url": "https://example.com/official/rank3"
+  }
+]
