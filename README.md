@@ -73,6 +73,35 @@ python dokkan_banner_scraper.py
 
 The workflow `.github/workflows/scrape_dokkan_banner.yml` runs this scraper automatically.
 
+## Ranking Page Manager
+
+The `ranking_page_manager.py` script pushes ranking data to a WordPress page so that the content can be edited afterwards from the WordPress 管理画面. Ranking items are defined in `ranking_data.json` and include:
+
+* `rank` – display order
+* `title`
+* `image_url` – image source shown on the page
+* `image_link` – URL opened when the image is clicked
+* `description`
+* `detail_url` – target for the 詳細 button
+* `official_url` – target for the 公式 button
+
+The script renders these items into Gutenberg blocks and upserts a page via the REST API. Configure the following environment variables before running the script:
+
+```bash
+export WP_API_BASE="https://example.com/wp-json/wp/v2"
+export WP_USER="your_user"
+export WP_APP_PASS="your_application_password"
+python ranking_page_manager.py
+```
+
+Optional environment variables:
+
+* `WP_RANKING_JSON` – path to a custom JSON file. Defaults to `ranking_data.json`.
+* `WP_RANKING_SLUG` – page slug (`ranking` by default).
+* `WP_RANKING_TITLE` – page title when creating a new page (`ランキング` by default).
+
+Once the page is created, you can fine-tune text, buttons, and images directly from the WordPress editor without running the script again.
+
 ## Spark Oripa Scraper
 
 The `sparkoripa_scraper.py` script collects gacha data from [sparkoripa.jp](https://sparkoripa.jp/). It uses `requests` and `BeautifulSoup` to scrape the top page and appends the title, image URL, detail page URL and PT value to the `その他` sheet.
