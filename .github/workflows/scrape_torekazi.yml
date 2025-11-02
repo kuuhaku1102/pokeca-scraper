@@ -1,37 +1,45 @@
-name: Scrape Torekazi
+name: Scrape Torekazi to WordPress
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 */4 * * *'
+    # JST 9:00 → UTC 0:00
+    - cron: "0 0 * * *"
+  workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - name: Checkout repository
+      - name: 🧭 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install dependencies
+      - name: 🧩 Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          python -m playwright install --with-deps
+          pip install playwright requests
+          playwright install chromium
 
-      - name: Run scraper
+      - name: ⚙️ Run scraper
         env:
-          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-        run: python torekazi_scraper.py
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
+        run: |
+          python scrape_torekazi_to_wp.py
 
-      - name: Upload debug HTML
-        if: failure()
+      - name: 📦 Upload debug HTML (if exists)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: torekazi_debug
-          path: torekazi_debug.html
+          name: debug-html
+          path: |
+            pokepa365_debug.html
+            torekazi_debug.html
+          if-no-files-found: ignore
