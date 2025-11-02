@@ -1,0 +1,38 @@
+name: Apply Scraper Patch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 🧭 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # パッチとの整合性のため履歴全取得
+
+      - name: 🧩 Apply patch safely
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="auto/patch-$(date +'%Y%m%d-%H%M%S')"
+          git checkout -b "$BRANCH"
+
+          echo "🧩 Checking patch (3way merge)..."
+          # --3way で自動マージを試みる（競合時は .rej 生成）
+          if ! git apply --3way --whitespace=fix patches/update_scrapers.patch; then
+            echo "⚠️ Patch partially failed, continuing with .rej files"
+          fi
+
+          echo "🧩 Changed files summary ↓"
+          git add -A
+          git diff --cached --stat || echo "No diff found"
+
+          git commit -m "Apply patch: update_scrapers.patch" || echo "No changes to commit"
+
+          echo "🪄 Pushing to remote branch..."
+          git push origin HEAD || echo "⚠️ Push skipped (no diff or auth issue)"
