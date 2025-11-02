@@ -1,38 +1,42 @@
-name: Scrape Rises
+name: Scrape Rises to WordPress
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 */3 * * *'  # 3時間ごとに実行
+    - cron: "0 */6 * * *"  # 6時間ごとに自動実行
+  workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    env:
-      GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-      SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: 🧭 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.11"
 
-      - name: Install dependencies
+      - name: 🧩 Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          python -m playwright install --with-deps
+          pip install playwright requests
+          playwright install --with-deps chromium
 
-      - name: Run scraper
-        run: python rises_scraper.py
+      - name: ⚙️ Run Rises scraper
+        env:
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASS: ${{ secrets.WP_APP_PASS }}
+        run: |
+          python scrape_rises_to_wp.py
 
-      - name: Upload debug HTML
-        if: failure()
+      - name: 📦 Upload debug HTML (if exists)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rises_debug
+          name: debug-html
           path: rises_debug.html
+          if-no-files-found: ignore
