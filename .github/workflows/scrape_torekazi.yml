@@ -2,14 +2,13 @@ name: Scrape Torekazi to WordPress
 
 on:
   schedule:
-    # JST 9:00 → UTC 0:00
-    - cron: "0 0 * * *"
+    - cron: "0 */6 * * *"  # 6時間ごとに自動実行（JSTでは+9時間後）
   workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: 🧭 Checkout repository
@@ -24,9 +23,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install playwright requests
-          playwright install chromium
+          playwright install --with-deps chromium
 
-      - name: ⚙️ Run scraper
+      - name: ⚙️ Scrape and post to WordPress
         env:
           WP_URL: ${{ secrets.WP_URL }}
           WP_USER: ${{ secrets.WP_USER }}
@@ -40,6 +39,5 @@ jobs:
         with:
           name: debug-html
           path: |
-            pokepa365_debug.html
             torekazi_debug.html
           if-no-files-found: ignore
