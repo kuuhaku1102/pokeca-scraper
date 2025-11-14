@@ -47,7 +47,7 @@ def fetch_existing_urls() -> set:
 
 
 # --------------------------------
-# カード一覧ページ（1〜20ページ）をクロール
+# 全20ページをスクロールしながらクロール
 # --------------------------------
 def get_card_urls(max_pages=20):
     print("🔍 pokeca-chart.com のカード一覧を全ページクロール中...")
@@ -56,18 +56,20 @@ def get_card_urls(max_pages=20):
 
     for page_num in range(1, max_pages + 1):
         list_url = f"https://pokeca-chart.com/all-card?mode={page_num}"
-        print(f"📄 ページ取得中: {list_url}")
+        print(f"\n📄 ページ取得中: {list_url}")
 
         try:
             driver.get(list_url)
-            time.sleep(2)
+            time.sleep(1)
+
+            # 🔥 ページ読み込み安定化（スクロール）
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1.5)
+
             soup = BeautifulSoup(driver.page_source, "html.parser")
 
             cards = soup.find_all("div", class_="cp_card04")
-
-            if not cards:
-                print(f"⚠️ ページ {page_num}: カードなし → 以降のページの取得を停止")
-                break
+            print(f"  → ページ {page_num}: {len(cards)} 件")
 
             for card in cards:
                 a = card.find("a", href=True)
@@ -77,13 +79,12 @@ def get_card_urls(max_pages=20):
                 if href.startswith("https://pokeca-chart.com/s"):
                     urls.add(href)
 
-            print(f"  → ページ {page_num} の取得件数: {len(cards)} 件")
-
         except Exception as e:
             print(f"🛑 ページ {page_num} の取得中にエラー:", e)
+            # エラーがあっても停止しない
             continue
 
-    print(f"🎉 合計 {len(urls)} 件のカードURLを取得")
+    print(f"\n🎉 合計 {len(urls)} 件のカードURLを取得\n")
     return list(urls)
 
 
@@ -91,7 +92,6 @@ def get_card_urls(max_pages=20):
 # カード詳細ページから情報収集
 # --------------------------------
 def fetch_card_detail(url: str):
-
     driver.get(url)
     time.sleep(2)
     soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -165,8 +165,6 @@ def main():
     start = time.time()
 
     existing_urls = fetch_existing_urls()
-
-    # カードURL 1–20ページ収集
     all_urls = get_card_urls(max_pages=20)
 
     new_items = []
@@ -179,10 +177,9 @@ def main():
         detail = fetch_card_detail(url)
         new_items.append(detail)
 
-    # WordPress に送信
     send_to_wordpress(new_items)
 
-    print(f"🏁 完了！（{round(time.time() - start, 2)} 秒）")
+    print(f"\n🏁 完了！（{round(time.time() - start, 2)} 秒）\n")
 
 
 if __name__ == "__main__":
