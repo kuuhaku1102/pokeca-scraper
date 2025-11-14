@@ -1,7 +1,6 @@
 import os
 import time
 import json
-import base64
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -48,43 +47,44 @@ def fetch_existing_urls() -> set:
 
 
 # --------------------------------
-# pokeca-chart トップページからカードURL収集
+# カード一覧ページ（1〜20ページ）をクロール
 # --------------------------------
-def get_card_urls(max_count=100):
+def get_card_urls(max_pages=20):
+    print("🔍 pokeca-chart.com のカード一覧を全ページクロール中...")
 
-    print("🔍 pokeca-chart.com をロード中...")
-    driver.get("https://pokeca-chart.com/")
+    urls = set()
 
-    # ページ全体を一定までスクロール
-    last_height = driver.execute_script("return document.body.scrollHeight")
-    scroll_stable = 0
+    for page_num in range(1, max_pages + 1):
+        list_url = f"https://pokeca-chart.com/all-card?mode={page_num}"
+        print(f"📄 ページ取得中: {list_url}")
 
-    while True:
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(1.5)
-        new_height = driver.execute_script("return document.body.scrollHeight")
+        try:
+            driver.get(list_url)
+            time.sleep(2)
+            soup = BeautifulSoup(driver.page_source, "html.parser")
 
-        if new_height == last_height:
-            scroll_stable += 1
-            if scroll_stable >= 3:
+            cards = soup.find_all("div", class_="cp_card04")
+
+            if not cards:
+                print(f"⚠️ ページ {page_num}: カードなし → 以降のページの取得を停止")
                 break
-        else:
-            scroll_stable = 0
 
-        last_height = new_height
+            for card in cards:
+                a = card.find("a", href=True)
+                if not a:
+                    continue
+                href = a["href"].strip()
+                if href.startswith("https://pokeca-chart.com/s"):
+                    urls.add(href)
 
-    soup = BeautifulSoup(driver.page_source, "html.parser")
-    cards = soup.find_all("div", class_="cp_card04")
+            print(f"  → ページ {page_num} の取得件数: {len(cards)} 件")
 
-    urls = []
-    for card in cards:
-        a = card.find("a", href=True)
-        if a and a["href"].startswith("https://pokeca-chart.com/s"):
-            urls.append(a["href"])
+        except Exception as e:
+            print(f"🛑 ページ {page_num} の取得中にエラー:", e)
+            continue
 
-    urls = list(set(urls))[:max_count]
-    print(f"🎴 取得したカードURL: {len(urls)} 件")
-    return urls
+    print(f"🎉 合計 {len(urls)} 件のカードURLを取得")
+    return list(urls)
 
 
 # --------------------------------
@@ -134,7 +134,7 @@ def fetch_card_detail(url: str):
 # --------------------------------
 def send_to_wordpress(items):
     if not items:
-        print("📭 新規データなし（投稿スキップ）")
+        print("📭 新規データなし → 投稿スキップ")
         return
 
     print(f"🚀 WordPressへ {len(items)} 件送信中...")
@@ -148,9 +148,10 @@ def send_to_wordpress(items):
         )
 
         print("Status:", res.status_code)
+
         try:
             print(json.dumps(res.json(), ensure_ascii=False, indent=2))
-        except:
+        except Exception:
             print(res.text)
 
     except Exception as e:
@@ -161,11 +162,12 @@ def send_to_wordpress(items):
 # メイン処理
 # --------------------------------
 def main():
-
     start = time.time()
 
     existing_urls = fetch_existing_urls()
-    all_urls = get_card_urls(max_count=100)
+
+    # カードURL 1–20ページ収集
+    all_urls = get_card_urls(max_pages=20)
 
     new_items = []
 
@@ -177,6 +179,7 @@ def main():
         detail = fetch_card_detail(url)
         new_items.append(detail)
 
+    # WordPress に送信
     send_to_wordpress(new_items)
 
     print(f"🏁 完了！（{round(time.time() - start, 2)} 秒）")
