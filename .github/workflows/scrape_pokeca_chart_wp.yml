@@ -1,0 +1,40 @@
+name: Scrape Pokeca Chart (WP)
+
+on:
+  schedule:
+    # 毎日 10:00 JST（= 01:00 UTC）
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # 1) ソースコード取得
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Pythonセットアップ
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3) 依存パッケージインストール
+      - name: Install dependencies
+        run: |
+          pip install selenium==4.22.0
+          pip install beautifulsoup4
+          pip install webdriver-manager
+          pip install requests
+
+      # 4) スクリプト実行
+      - name: Run Pokeca Chart Scraper
+        env:
+          WP_URL: ${{ secrets.POKECA_WP_URL }}
+          WP_USER: ${{ secrets.POKECA_WP_USER }}
+          WP_APP_PASS: ${{ secrets.POKECA_WP_APP_PASS }}
+        run: |
+          python scrape_pokeca_chart_wp.py
