@@ -30,96 +30,100 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), opti
 
 
 # --------------------------------
-# 既存 URL一覧取得（重複除外用）
+# 既存 URL一覧取得（重複排除用）
 # --------------------------------
 def fetch_existing_urls() -> set:
     try:
         res = requests.get(WP_LIST_URL, auth=(WP_USER, WP_APP_PASS), timeout=20)
         if res.status_code != 200:
-            print("⚠️ 既存URL取得に失敗:", res.status_code)
+            print("⚠️ 既存URL取得失敗:", res.status_code)
             return set()
         urls = set(res.json())
         print(f"🔎 既存URL数: {len(urls)} 件")
         return urls
     except Exception as e:
-        print("🛑 URL取得エラー:", e)
+        print("🛑 URL取得中にエラー:", e)
         return set()
 
 
 # --------------------------------
-# 全20ページをスクロールしながらクロール
+# pokeca-chart の全20ページからカード取得
 # --------------------------------
 def get_card_urls(max_pages=20):
-    print("🔍 pokeca-chart.com のカード一覧を全ページクロール中...")
+
+    print("🔍 pokeca-chart.com 全20ページをクロール中…")
 
     urls = set()
 
     for page_num in range(1, max_pages + 1):
+
         list_url = f"https://pokeca-chart.com/all-card?mode={page_num}"
         print(f"\n📄 ページ取得中: {list_url}")
 
-        try:
-            driver.get(list_url)
-            time.sleep(1)
+        driver.get(list_url)
+        time.sleep(2)
 
-            # 🔥 ページ読み込み安定化（スクロール）
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1.5)
+        # SPA対策：1回スクロール
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(1.5)
 
-            soup = BeautifulSoup(driver.page_source, "html.parser")
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
-            cards = soup.find_all("div", class_="cp_card04")
-            print(f"  → ページ {page_num}: {len(cards)} 件")
+        # ★ 正しいカード要素
+        cards = soup.select("div.cp_card.hover_big")
 
-            for card in cards:
-                a = card.find("a", href=True)
-                if not a:
-                    continue
-                href = a["href"].strip()
-                if href.startswith("https://pokeca-chart.com/s"):
-                    urls.add(href)
+        print(f"  → ページ {page_num}: {len(cards)} 件")
 
-        except Exception as e:
-            print(f"🛑 ページ {page_num} の取得中にエラー:", e)
-            # エラーがあっても停止しない
-            continue
+        for card in cards:
+            a_tag = card.find("a", href=True)
+            if not a_tag:
+                continue
+
+            href = a_tag["href"].strip()
+
+            # pokeca-chart 内のURLのみ許可
+            if href.startswith("https://pokeca-chart.com/"):
+                urls.add(href)
 
     print(f"\n🎉 合計 {len(urls)} 件のカードURLを取得\n")
     return list(urls)
 
 
 # --------------------------------
-# カード詳細ページから情報収集
+# カード詳細ページのスクレイプ
 # --------------------------------
-def fetch_card_detail(url: str):
+def fetch_card_detail(url):
+
     driver.get(url)
     time.sleep(2)
+
     soup = BeautifulSoup(driver.page_source, "html.parser")
 
-    # カード名
+    # ① カード名
     name_tag = soup.find("h1")
     card_name = name_tag.text.strip() if name_tag else "noname"
 
-    # 画像
-    img = soup.find("img")
+    # ② 画像URL
     img_url = ""
+    img = soup.find("img")
     if img and img.get("src"):
         img_url = img["src"]
         if not img_url.startswith("http"):
             img_url = "https://pokeca-chart.com" + img_url
 
-    # 価格表
+    # ③ 価格JSON（テーブル形式）
     prices = {"美品": "", "キズあり": "", "PSA10": ""}
 
     table = soup.find("tbody", id="item-price-table")
+
     if table:
         rows = table.find_all("tr")
         if len(rows) >= 2:
             cols = rows[1].find_all("td")
             if len(cols) >= 4:
-                prices["美品"] = cols[1].text.strip()
-                prices["キズあり"] = cols[2].text.strip()
-                prices["PSA10"] = cols[3].text.strip()
+                prices["美品"] = cols[1].get_text(strip=True)
+                prices["キズあり"] = cols[2].get_text(strip=True)
+                prices["PSA10"] = cols[3].get_text(strip=True)
 
     return {
         "card_name": card_name,
@@ -130,48 +134,47 @@ def fetch_card_detail(url: str):
 
 
 # --------------------------------
-# WP REST API へ送信
+# WordPressへ投稿
 # --------------------------------
 def send_to_wordpress(items):
+
     if not items:
-        print("📭 新規データなし → 投稿スキップ")
+        print("📭 新規データなし → スキップ")
         return
 
-    print(f"🚀 WordPressへ {len(items)} 件送信中...")
+    print(f"🚀 WordPressへ {len(items)} 件送信中…")
+
+    res = requests.post(
+        WP_URL,
+        json=items,
+        auth=(WP_USER, WP_APP_PASS),
+        timeout=40
+    )
+
+    print("Status:", res.status_code)
 
     try:
-        res = requests.post(
-            WP_URL,
-            json=items,
-            auth=(WP_USER, WP_APP_PASS),
-            timeout=40
-        )
-
-        print("Status:", res.status_code)
-
-        try:
-            print(json.dumps(res.json(), ensure_ascii=False, indent=2))
-        except Exception:
-            print(res.text)
-
-    except Exception as e:
-        print("🛑 送信エラー:", e)
+        print(json.dumps(res.json(), ensure_ascii=False, indent=2))
+    except:
+        print(res.text)
 
 
 # --------------------------------
 # メイン処理
 # --------------------------------
 def main():
+
     start = time.time()
 
-    existing_urls = fetch_existing_urls()
-    all_urls = get_card_urls(max_pages=20)
+    existing = fetch_existing_urls()
+
+    card_urls = get_card_urls(max_pages=20)
 
     new_items = []
 
-    for url in all_urls:
-        if url in existing_urls:
-            print(f"⏭ 重複スキップ: {url}")
+    for url in card_urls:
+        if url in existing:
+            print("⏭ 重複スキップ:", url)
             continue
 
         detail = fetch_card_detail(url)
@@ -179,7 +182,7 @@ def main():
 
     send_to_wordpress(new_items)
 
-    print(f"\n🏁 完了！（{round(time.time() - start, 2)} 秒）\n")
+    print(f"\n🏁 完了！（{round(time.time() - start, 2)} 秒）")
 
 
 if __name__ == "__main__":
