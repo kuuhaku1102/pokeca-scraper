@@ -9,7 +9,9 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+
+    # ★★★ ここに追加（最重要） ★★★
+    timeout-minutes: 30
 
     steps:
       # 1) ソースコード取得
