@@ -1,9 +1,14 @@
 import os
 import time
 import json
+import re
 import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 # --------------------------------
 # WordPress REST API 設定
@@ -14,13 +19,20 @@ WP_USER = os.getenv("WP_USER")
 WP_APP_PASS = os.getenv("WP_APP_PASS")
 
 # --------------------------------
-# Pokeca-chart の WP-API ベースURL
+# Selenium 設定
 # --------------------------------
-POKECA_API = "https://pokeca-chart.com/wp-json/wp/v2/cards"
+options = Options()
+options.add_argument("--headless")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-blink-features=AutomationControlled")
+options.add_argument("--window-size=1280,2000")
+
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 
 # --------------------------------
-# 既存URLを取得（重複判定用）
+# 既存URL取得
 # --------------------------------
 def fetch_existing_urls():
     try:
@@ -34,45 +46,50 @@ def fetch_existing_urls():
 
 
 # --------------------------------
-# Pokeca-chart REST API で全カードURLを取得
+# /all-card を無限スクロールして全カードURLを抽出
 # --------------------------------
-def fetch_all_card_urls():
+def fetch_all_card_urls(scroll_count=150):
 
-    page = 1
+    print(f"🔍 /all-card を {scroll_count} 回スクロールして全カード取得…")
+
+    driver.get("https://pokeca-chart.com/all-card")
+    time.sleep(2)
+
+    last_height = 0
+
+    for i in range(scroll_count):
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(1.2)  # ページ読み込み待機
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == last_height:
+            print(f"⚠️ スクロール {i}で高さ変化なし → それ以上カードは増えない可能性")
+            break
+        last_height = new_height
+        print(f"  → スクロール {i+1}/{scroll_count}")
+
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+
     urls = set()
 
-    print("🔍 pokeca-chart API から全カード一覧を取得…")
+    # カードURLの共通パターン
+    pattern = re.compile(r"^https://pokeca-chart\.com/[a-z0-9\-]+$", re.IGNORECASE)
 
-    while True:
-        api_url = f"{POKECA_API}?per_page=100&page={page}"
-        res = requests.get(api_url, timeout=10)
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
 
-        if res.status_code == 400:  # 上限ページ
-            break
+        # 相対パス → 絶対URL化
+        if href.startswith("/"):
+            href = "https://pokeca-chart.com" + href
 
-        if res.status_code != 200:
-            print("⚠️ APIエラー:", res.status_code)
-            break
+        if pattern.match(href):
+            urls.add(href)
 
-        data = res.json()
-        if not data:
-            break
-
-        # WP-API の link から詳細ページ URL を取得
-        for card in data:
-            if "link" in card:
-                urls.add(card["link"])
-
-        print(f"📄 API Page {page}: {len(data)} 件 → 累計 {len(urls)} 件")
-
-        page += 1
-
-    print(f"\n🎉 取得カード総数（API）: {len(urls)} 件\n")
+    print(f"\n🎉 最終取得カードURL総数: {len(urls)} 件\n")
     return list(urls)
 
 
 # --------------------------------
-# 詳細ページを取得して価格情報を抽出
+# 詳細ページスクレイピング（requests高速版）
 # --------------------------------
 def fetch_card_detail(url):
 
@@ -80,11 +97,11 @@ def fetch_card_detail(url):
         r = requests.get(url, timeout=10)
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # カード名
+        # ① カード名
         h1 = soup.find("h1")
         card_name = h1.text.strip() if h1 else "noname"
 
-        # 画像
+        # ② 画像
         img_url = ""
         img = soup.find("img")
         if img and img.get("src"):
@@ -92,7 +109,7 @@ def fetch_card_detail(url):
             if not img_url.startswith("http"):
                 img_url = "https://pokeca-chart.com" + img_url
 
-        # 価格テーブル
+        # ③ 価格 JSON
         prices = {"美品": "", "キズあり": "", "PSA10": ""}
 
         table = soup.find("tbody", id="item-price-table")
@@ -113,7 +130,7 @@ def fetch_card_detail(url):
         }
 
     except Exception as e:
-        print("⚠️ 詳細ページエラー:", url, e)
+        print("⚠️ 詳細取得失敗:", url, e)
         return None
 
 
@@ -121,10 +138,13 @@ def fetch_card_detail(url):
 # 並列で詳細ページを取得
 # --------------------------------
 def fetch_details_parallel(urls, existing):
+
+    print("🔄 詳細ページを並列取得中…")
     results = []
 
     def task(u):
         if u in existing:
+            print(" ⏭ 重複:", u)
             return None
         return fetch_card_detail(u)
 
@@ -140,20 +160,20 @@ def fetch_details_parallel(urls, existing):
 
 
 # --------------------------------
-# WordPress に 20件ずつ送信
+# WordPressへ 20件ずつ送信
 # --------------------------------
-def send_to_wordpress_batched(items, batch_size=20):
+def send_to_wp_batched(items, batch_size=20):
 
-    total = len(items)
-    if total == 0:
+    if not items:
         print("📭 送信対象なし")
         return
 
+    total = len(items)
     print(f"🚀 WPへ {total} 件送信開始…")
 
     for i in range(0, total, batch_size):
         batch = items[i:i+batch_size]
-        print(f"  → Batch {i//batch_size + 1}: {len(batch)} 件")
+        print(f" → Batch {i//batch_size+1}: {len(batch)} 件")
 
         try:
             res = requests.post(
@@ -164,7 +184,6 @@ def send_to_wordpress_batched(items, batch_size=20):
             )
             print("Status:", res.status_code)
             print(res.text)
-
         except Exception as e:
             print("🛑 バッチ送信エラー:", e)
 
@@ -178,14 +197,14 @@ def main():
 
     existing_urls = fetch_existing_urls()
 
-    # ① API経由で全カード取得（Selenium不要）
-    list_urls = fetch_all_card_urls()
+    # Step1: /all-card を150回スクロールして全URL取得
+    list_urls = fetch_all_card_urls(scroll_count=150)
 
-    # ② 詳細ページ並列取得
+    # Step2: 詳細ページを並列取得
     new_items = fetch_details_parallel(list_urls, existing_urls)
 
-    # ③ WPへ送信
-    send_to_wordpress_batched(new_items)
+    # Step3: WP にバッチ送信
+    send_to_wp_batched(new_items)
 
     print(f"\n🏁 完了！（{round(time.time() - start, 2)} 秒）")
 
