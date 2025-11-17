@@ -1,13 +1,14 @@
-name: Scrape Grim Oripa Banner
+name: Scrape GrimTCG Banner
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */6 * * *'  # 6時間ごと
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -17,14 +18,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           python -m playwright install --with-deps
 
-      - name: Run banner scraper
+      - name: Run GrimTCG banner scraper
         env:
-          GSHEET_JSON: ${{ secrets.GSHEET_JSON }}
-          SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
-        run: python grim_oripa_banner_scraper.py
+          WP_banar_BASE_URL: ${{ secrets.WP_banar_BASE_URL }}
+          WP_banar_USER: ${{ secrets.WP_banar_USER }}
+          WP_banar_APP_PASS: ${{ secrets.WP_banar_APP_PASS }}
+        run: python scrape_grimtcg_banners_to_wp.py
