@@ -11,6 +11,7 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "https://www.novagacha.com"
 TARGET_URL = "https://www.novagacha.com/?tab=gacha&category=2"
 SHEET_NAME = "その他"
+MAX_CELLS = 10_000_000
 
 
 def save_credentials() -> str:
@@ -34,7 +35,26 @@ def get_sheet():
     if not spreadsheet_url:
         raise RuntimeError("SPREADSHEET_URL environment variable is missing")
     spreadsheet = client.open_by_url(spreadsheet_url)
-    return spreadsheet.worksheet(SHEET_NAME)
+    return spreadsheet, spreadsheet.worksheet(SHEET_NAME)
+
+
+def can_append(spreadsheet, additional_cells: int) -> bool:
+    meta = spreadsheet.fetch_sheet_metadata()
+    total_cells = 0
+    for sheet in meta.get("sheets", []):
+        grid = sheet.get("properties", {}).get("gridProperties", {})
+        rows = grid.get("rowCount", 0)
+        cols = grid.get("columnCount", 0)
+        total_cells += rows * cols
+
+    if total_cells + additional_cells > MAX_CELLS:
+        print(
+            f"🛑 追加 {additional_cells} セルで上限 {MAX_CELLS} を超えるためスキップします "
+            f"(現在のグリッドセル総数: {total_cells})"
+        )
+        return False
+
+    return True
 
 
 def normalize_url(url: str) -> str:
@@ -131,12 +151,20 @@ def scrape_items(existing_urls: set) -> List[List[str]]:
 
 
 def main() -> None:
-    sheet = get_sheet()
+    spreadsheet, sheet = get_sheet()
     existing_urls = fetch_existing_urls(sheet)
     rows = scrape_items(existing_urls)
     if rows:
-        sheet.append_rows(rows, value_input_option="USER_ENTERED")
-        print(f"📥 {len(rows)} 件追記完了")
+        col_count = max(sheet.col_count, len(rows[0])) if rows else sheet.col_count
+        additional_cells = len(rows) * col_count
+        if can_append(spreadsheet, additional_cells):
+            try:
+                sheet.append_rows(rows, value_input_option="USER_ENTERED")
+                print(f"📥 {len(rows)} 件追記完了")
+            except gspread.exceptions.APIError as exc:
+                print(f"🛑 追記失敗: {exc}")
+        else:
+            print("📭 シート上限のため書き込みを見送りました")
     else:
         print("📭 新規データなし")
 
