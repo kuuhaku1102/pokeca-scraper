@@ -27,10 +27,8 @@ jobs:
       # 3) 依存パッケージインストール
       - name: Install dependencies
         run: |
-          pip install selenium==4.22.0
-          pip install beautifulsoup4
-          pip install webdriver-manager
-          pip install requests
+          pip install beautifulsoup4 requests playwright
+          playwright install --with-deps chromium
 
       # 4) スクリプト実行
       - name: Run Pokeca Chart Scraper
