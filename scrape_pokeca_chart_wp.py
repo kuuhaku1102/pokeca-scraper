@@ -1,14 +1,10 @@
 import os
 import time
-import json
 import re
 import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from playwright.sync_api import sync_playwright
 
 # --------------------------------
 # WordPress REST API 設定
@@ -17,19 +13,6 @@ WP_URL = os.getenv("WP_URL", "https://online-gacha-hack.com/wp-json/pokeca/v1/up
 WP_LIST_URL = "https://online-gacha-hack.com/wp-json/pokeca/v1/list"
 WP_USER = os.getenv("WP_USER")
 WP_APP_PASS = os.getenv("WP_APP_PASS")
-
-# --------------------------------
-# Selenium 設定
-# --------------------------------
-options = Options()
-options.add_argument("--headless")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-options.add_argument("--disable-blink-features=AutomationControlled")
-options.add_argument("--window-size=1280,2000")
-
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
 
 # --------------------------------
 # 既存URL取得
@@ -52,22 +35,26 @@ def fetch_all_card_urls(scroll_count=150):
 
     print(f"🔍 /all-card を {scroll_count} 回スクロールして全カード取得…")
 
-    driver.get("https://pokeca-chart.com/all-card")
-    time.sleep(2)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page(viewport={"width": 1280, "height": 2000})
+        page.goto("https://pokeca-chart.com/all-card", wait_until="networkidle")
+        time.sleep(1.5)
 
-    last_height = 0
+        last_height = 0
 
-    for i in range(scroll_count):
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(1.2)  # ページ読み込み待機
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == last_height:
-            print(f"⚠️ スクロール {i}で高さ変化なし → それ以上カードは増えない可能性")
-            break
-        last_height = new_height
-        print(f"  → スクロール {i+1}/{scroll_count}")
+        for i in range(scroll_count):
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            time.sleep(1.2)  # ページ読み込み待機
+            new_height = page.evaluate("document.body.scrollHeight")
+            if new_height == last_height:
+                print(f"⚠️ スクロール {i}で高さ変化なし → それ以上カードは増えない可能性")
+                break
+            last_height = new_height
+            print(f"  → スクロール {i+1}/{scroll_count}")
 
-    soup = BeautifulSoup(driver.page_source, "html.parser")
+        soup = BeautifulSoup(page.content(), "html.parser")
+        browser.close()
 
     urls = set()
 
